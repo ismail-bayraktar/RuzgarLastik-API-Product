@@ -48,18 +48,15 @@ export default function SyncPage() {
 	
 	const previewMutation = useMutation({
 		mutationFn: async () => {
-			const response = await fetch("/api/trpc/sync.preview", {
+			const response = await fetch("http://localhost:5000/trpc/sync.preview", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					categories: selectedCategories,
-					productLimit: testMode ? productLimit : 50,
-				}),
+				body: JSON.stringify({ "0": { categories: selectedCategories, productLimit: testMode ? productLimit : 50 } }),
 				credentials: "include",
 			});
 			const data = await response.json();
-			if (data.result?.data) return data.result.data;
-			throw new Error(data.error?.message || "Önizleme hatası");
+			if (data[0]?.result?.data) return data[0].result.data;
+			throw new Error(data[0]?.error?.message || "Önizleme hatası");
 		},
 		onSuccess: (data) => {
 			setPreviewData(data);
@@ -77,21 +74,15 @@ export default function SyncPage() {
 
 	const startSyncMutation = useMutation({
 		mutationFn: async () => {
-			const response = await fetch("/api/trpc/sync.start", {
+			const response = await fetch("http://localhost:5000/trpc/sync.start", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					mode,
-					categories: selectedCategories,
-					dryRun,
-					testMode,
-					productLimit: testMode ? productLimit : undefined,
-				}),
+				body: JSON.stringify({ "0": { mode, categories: selectedCategories, dryRun, testMode, productLimit: testMode ? productLimit : undefined } }),
 				credentials: "include",
 			});
 			const data = await response.json();
-			if (data.result?.data) return data.result.data;
-			throw new Error(data.error?.message || "Sync hatası");
+			if (data[0]?.result?.data) return data[0].result.data;
+			throw new Error(data[0]?.error?.message || "Sync hatası");
 		},
 		onSuccess: (data) => {
 			toast.success(`Sync başlatıldı! Session ID: ${data.sessionId}`);

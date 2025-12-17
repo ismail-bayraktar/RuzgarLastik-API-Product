@@ -51,8 +51,8 @@ export default function SignInForm({
 	}
 
 	return (
-		<div className="mx-auto w-full mt-10 max-w-md p-6">
-			<h1 className="mb-6 text-center text-3xl font-bold">Welcome Back</h1>
+		<div className="w-full">
+			<h1 className="mb-6 text-center text-2xl font-bold text-white">Giriş Yap</h1>
 
 			<form
 				onSubmit={(e) => {
@@ -125,9 +125,9 @@ export default function SignInForm({
 				<Button
 					variant="link"
 					onClick={onSwitchToSignUp}
-					className="text-indigo-600 hover:text-indigo-800"
+					className="text-purple-400 hover:text-purple-300"
 				>
-					Need an account? Sign Up
+					Hesabınız yok mu? Kayıt Ol
 				</Button>
 			</div>
 		</div>

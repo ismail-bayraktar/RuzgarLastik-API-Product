@@ -42,15 +42,13 @@ export default function PricingRulesPage() {
 	});
 
 	return (
-		<div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
-			<div className="container mx-auto px-4 py-8">
-				<div className="mb-6">
-					<Link href="/dashboard" className="text-purple-400 hover:text-purple-300 underline">
-						← Dashboard'a Dön
-					</Link>
-					<h1 className="text-4xl font-bold mt-4 bg-gradient-to-r from-blue-400 to-cyan-600 bg-clip-text text-transparent">
+		<div className="text-white p-8">
+			<div className="max-w-7xl mx-auto">
+				<div className="mb-8">
+					<h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-600 bg-clip-text text-transparent">
 						Fiyat Kuralları
 					</h1>
+					<p className="text-slate-400 mt-1">Kategori ve marka bazlı fiyatlandırma</p>
 				</div>
 
 				<div className="mb-6 flex gap-4">

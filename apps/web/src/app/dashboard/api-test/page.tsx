@@ -78,7 +78,7 @@ export default function ApiTestPage() {
 		const startTime = Date.now();
 
 		try {
-			const response = await fetch(`/api/supplier-test?url=${encodeURIComponent(selectedCategory.url)}`);
+			const response = await fetch(`/api/supplier-test?url=${encodeURIComponent(selectedCategory.url)}&category=${encodeURIComponent(selectedCategory.name)}`);
 			const responseTime = Date.now() - startTime;
 			const data = await response.json();
 

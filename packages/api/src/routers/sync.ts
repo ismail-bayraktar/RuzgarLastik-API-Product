@@ -1,7 +1,20 @@
 import { protectedProcedure, router } from "../index";
+import { db } from "@my-better-t-app/db";
+import { apiTestLogs } from "@my-better-t-app/db/schema";
+import { desc } from "drizzle-orm";
 import { z } from "zod";
 
 export const syncRouter = router({
+  apiTestLogs: protectedProcedure
+    .input(z.object({ limit: z.number().default(50) }))
+    .query(async ({ input }) => {
+      const logs = await db
+        .select()
+        .from(apiTestLogs)
+        .orderBy(desc(apiTestLogs.createdAt))
+        .limit(input.limit);
+      return { logs };
+    }),
   start: protectedProcedure
     .input(
       z.object({

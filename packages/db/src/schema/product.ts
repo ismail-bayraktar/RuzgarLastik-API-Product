@@ -1,4 +1,16 @@
-import { pgTable, serial, varchar, timestamp, json, uuid } from "drizzle-orm/pg-core";
+import { pgTable, serial, varchar, timestamp, json, uuid, integer, boolean } from "drizzle-orm/pg-core";
+
+export const apiTestLogs = pgTable("api_test_logs", {
+	id: serial("id").primaryKey(),
+	category: varchar("category", { length: 50 }).notNull(),
+	url: varchar("url", { length: 500 }).notNull(),
+	success: boolean("success").notNull(),
+	statusCode: integer("status_code"),
+	responseTimeMs: integer("response_time_ms"),
+	productCount: integer("product_count"),
+	errorMessage: varchar("error_message", { length: 500 }),
+	createdAt: timestamp("created_at").defaultNow(),
+});
 
 export const productMap = pgTable("product_map", {
 	id: serial("id").primaryKey(),

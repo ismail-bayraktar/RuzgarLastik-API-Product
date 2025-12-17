@@ -12,6 +12,9 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
 	title: "Ruzgar Lastik - Admin Panel",
 	description: "Tedarikci ve Shopify senkronizasyon yonetimi",
+	icons: {
+		icon: "/favicon.png",
+	},
 };
 
 export default function RootLayout({

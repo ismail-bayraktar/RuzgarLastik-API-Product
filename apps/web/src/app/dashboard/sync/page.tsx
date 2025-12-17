@@ -1,12 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { trpc } from "@/utils/trpc";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { 
 	Play, Loader2, Clock, CheckCircle2, XCircle, AlertCircle, 
 	FlaskConical, Eye, Package, DollarSign, ShoppingBag, 
-	ArrowRight, RefreshCw, AlertTriangle, Circle
+	ArrowRight, RefreshCw, AlertTriangle, Circle, Database, Calendar
 } from "lucide-react";
 
 interface SyncStep {
@@ -30,6 +30,15 @@ interface ProductPreview {
 	error?: string;
 }
 
+interface CacheCategory {
+	category: string;
+	lastFetchAt: string | null;
+	productCount: number;
+	status: string;
+	isStale: boolean;
+	refreshIntervalHours: number;
+}
+
 export default function SyncPage() {
 	const [mode, setMode] = useState<"full" | "incremental">("incremental");
 	const [dryRun, setDryRun] = useState(false);
@@ -37,21 +46,58 @@ export default function SyncPage() {
 	const [productLimit, setProductLimit] = useState(5);
 	const [selectedCategories, setSelectedCategories] = useState<string[]>(["tire", "rim", "battery"]);
 	const [showPreview, setShowPreview] = useState(false);
+	const [forceRefresh, setForceRefresh] = useState(false);
 	const [previewData, setPreviewData] = useState<{
 		steps: SyncStep[];
 		products: ProductPreview[];
 		errors: string[];
+		fromCache?: boolean;
 		summary: { total: number; success: number; errors: number; skipped: number };
 	} | null>(null);
 
 	const syncHistory = useQuery(trpc.sync.history.queryOptions({ limit: 10 }));
+
+	const cacheStatusQuery = useQuery({
+		queryKey: ["cacheStatus"],
+		queryFn: async () => {
+			const response = await fetch("http://localhost:5000/trpc/sync.cacheStatus", {
+				method: "GET",
+				credentials: "include",
+			});
+			const data = await response.json();
+			if (data?.result?.data) return data.result.data;
+			throw new Error("Cache status alınamadı");
+		},
+		refetchInterval: 30000,
+	});
+
+	const refreshCacheMutation = useMutation({
+		mutationFn: async () => {
+			const response = await fetch("http://localhost:5000/trpc/sync.refreshCache", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ "0": { categories: selectedCategories } }),
+				credentials: "include",
+			});
+			const data = await response.json();
+			if (data[0]?.result?.data) return data[0].result.data;
+			throw new Error(data[0]?.error?.message || "Cache yenileme hatası");
+		},
+		onSuccess: (data) => {
+			toast.success(`Cache yenilendi! ${data.productCount} ürün çekildi`);
+			cacheStatusQuery.refetch();
+		},
+		onError: (error: any) => {
+			toast.error(`Cache yenileme hatası: ${error.message}`);
+		},
+	});
 	
 	const previewMutation = useMutation({
 		mutationFn: async () => {
 			const response = await fetch("http://localhost:5000/trpc/sync.preview", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ "0": { categories: selectedCategories, productLimit: testMode ? productLimit : 50 } }),
+				body: JSON.stringify({ "0": { categories: selectedCategories, productLimit: testMode ? productLimit : 50, forceRefresh } }),
 				credentials: "include",
 			});
 			const data = await response.json();
@@ -61,10 +107,12 @@ export default function SyncPage() {
 		onSuccess: (data) => {
 			setPreviewData(data);
 			setShowPreview(true);
+			cacheStatusQuery.refetch();
 			if (data.errors.length > 0) {
 				toast.error(`${data.errors.length} hata bulundu`);
 			} else {
-				toast.success(`${data.summary.total} ürün önizlemesi hazır`);
+				const source = data.fromCache ? "cache'den" : "API'den";
+				toast.success(`${data.summary.total} ürün ${source} yüklendi`);
 			}
 		},
 		onError: (error: any) => {
@@ -107,6 +155,7 @@ export default function SyncPage() {
 			case "success":
 				return <CheckCircle2 className="h-4 w-4 text-green-500" />;
 			case "running":
+			case "fetching":
 				return <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />;
 			case "failed":
 			case "error":
@@ -114,6 +163,7 @@ export default function SyncPage() {
 			case "skipped":
 				return <AlertTriangle className="h-4 w-4 text-amber-500" />;
 			case "pending":
+			case "idle":
 				return <Circle className="h-4 w-4 text-muted-foreground" />;
 			default:
 				return <Clock className="h-4 w-4 text-muted-foreground" />;
@@ -129,12 +179,130 @@ export default function SyncPage() {
 		}
 	};
 
+	const formatDate = (dateStr: string | null) => {
+		if (!dateStr) return "Hiç";
+		const date = new Date(dateStr);
+		return date.toLocaleString("tr-TR", { 
+			day: "2-digit", 
+			month: "2-digit", 
+			year: "numeric",
+			hour: "2-digit", 
+			minute: "2-digit" 
+		});
+	};
+
+	const getTimeSince = (dateStr: string | null) => {
+		if (!dateStr) return "";
+		const date = new Date(dateStr);
+		const now = new Date();
+		const diffMs = now.getTime() - date.getTime();
+		const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+		const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+		
+		if (diffHours > 24) {
+			const days = Math.floor(diffHours / 24);
+			return `${days} gün önce`;
+		}
+		if (diffHours > 0) {
+			return `${diffHours} saat ${diffMins} dk önce`;
+		}
+		return `${diffMins} dk önce`;
+	};
+
 	return (
 		<div className="p-6 lg:p-8">
 			<div className="max-w-7xl mx-auto">
 				<div className="mb-8">
 					<h1 className="text-2xl font-semibold text-foreground">Senkronizasyon</h1>
 					<p className="text-muted-foreground mt-1">Tedarikçi ve Shopify senkronizasyonu</p>
+				</div>
+
+				<div className="mb-6 bg-card border border-border rounded-lg p-4">
+					<div className="flex items-center justify-between mb-4">
+						<div className="flex items-center gap-2">
+							<Database className="h-5 w-5 text-primary" />
+							<h2 className="text-base font-medium text-foreground">Ürün Cache Durumu</h2>
+						</div>
+						<button
+							onClick={() => refreshCacheMutation.mutate()}
+							disabled={refreshCacheMutation.isPending}
+							className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition disabled:opacity-50"
+						>
+							{refreshCacheMutation.isPending ? (
+								<Loader2 className="h-4 w-4 animate-spin" />
+							) : (
+								<RefreshCw className="h-4 w-4" />
+							)}
+							{refreshCacheMutation.isPending ? "Yenileniyor..." : "Cache'i Yenile"}
+						</button>
+					</div>
+
+					{cacheStatusQuery.isLoading ? (
+						<div className="flex items-center justify-center py-4">
+							<Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+						</div>
+					) : cacheStatusQuery.error ? (
+						<div className="text-center py-4 text-sm text-muted-foreground">
+							Cache durumu alınamadı
+						</div>
+					) : (
+						<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+							{(cacheStatusQuery.data?.categories || []).map((cat: CacheCategory) => (
+								<div 
+									key={cat.category}
+									className={`p-3 rounded-lg border ${
+										cat.isStale 
+											? "bg-amber-500/5 border-amber-500/30" 
+											: "bg-green-500/5 border-green-500/30"
+									}`}
+								>
+									<div className="flex items-center justify-between mb-2">
+										<span className="font-medium text-foreground">
+											{getCategoryLabel(cat.category)}
+										</span>
+										<span className={`text-xs px-2 py-0.5 rounded ${
+											cat.isStale 
+												? "bg-amber-500/20 text-amber-600" 
+												: "bg-green-500/20 text-green-600"
+										}`}>
+											{cat.isStale ? "Eskimiş" : "Güncel"}
+										</span>
+									</div>
+									<div className="space-y-1 text-sm">
+										<div className="flex items-center gap-2 text-muted-foreground">
+											<Package className="h-3.5 w-3.5" />
+											<span>{cat.productCount.toLocaleString("tr-TR")} ürün</span>
+										</div>
+										<div className="flex items-center gap-2 text-muted-foreground">
+											<Calendar className="h-3.5 w-3.5" />
+											<span>{formatDate(cat.lastFetchAt)}</span>
+										</div>
+										{cat.lastFetchAt && (
+											<p className="text-xs text-muted-foreground pl-5">
+												({getTimeSince(cat.lastFetchAt)})
+											</p>
+										)}
+									</div>
+								</div>
+							))}
+							{(!cacheStatusQuery.data?.categories || cacheStatusQuery.data.categories.length === 0) && (
+								<div className="col-span-3 text-center py-4 text-sm text-muted-foreground">
+									Cache henüz oluşturulmadı. "Cache'i Yenile" butonuna tıklayın.
+								</div>
+							)}
+						</div>
+					)}
+
+					{cacheStatusQuery.data?.totalProducts > 0 && (
+						<div className="mt-4 pt-4 border-t border-border flex items-center justify-between text-sm">
+							<span className="text-muted-foreground">
+								Toplam: <strong className="text-foreground">{cacheStatusQuery.data.totalProducts.toLocaleString("tr-TR")}</strong> ürün cache'de
+							</span>
+							<span className="text-xs text-muted-foreground">
+								Otomatik yenileme: Her 24 saatte bir
+							</span>
+						</div>
+					)}
 				</div>
 
 				<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -239,6 +407,19 @@ export default function SyncPage() {
 								<label className="flex items-center gap-3 cursor-pointer mt-2">
 									<input
 										type="checkbox"
+										checked={forceRefresh}
+										onChange={(e) => setForceRefresh(e.target.checked)}
+										className="w-4 h-4 rounded border-input bg-background text-primary focus:ring-ring"
+									/>
+									<div>
+										<span className="text-sm text-foreground">Zorla Yenile</span>
+										<p className="text-xs text-muted-foreground">Cache'i bypass et, API'den taze veri çek</p>
+									</div>
+								</label>
+
+								<label className="flex items-center gap-3 cursor-pointer mt-2">
+									<input
+										type="checkbox"
 										checked={dryRun}
 										onChange={(e) => setDryRun(e.target.checked)}
 										className="w-4 h-4 rounded border-input bg-background text-primary focus:ring-ring"
@@ -329,6 +510,11 @@ export default function SyncPage() {
 							<h2 className="text-lg font-medium text-foreground flex items-center gap-2">
 								<Eye className="h-5 w-5 text-primary" />
 								Sync Önizlemesi
+								{previewData.fromCache && (
+									<span className="text-xs bg-blue-500/10 text-blue-600 px-2 py-0.5 rounded ml-2">
+										Cache'den
+									</span>
+								)}
 							</h2>
 							<button
 								onClick={() => setShowPreview(false)}
@@ -470,12 +656,15 @@ export default function SyncPage() {
 
 						<div className="mt-6 flex justify-end gap-2">
 							<button
-								onClick={() => previewMutation.mutate()}
+								onClick={() => {
+									setForceRefresh(true);
+									previewMutation.mutate();
+								}}
 								disabled={previewMutation.isPending}
 								className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-muted text-foreground hover:bg-muted/80 transition"
 							>
 								<RefreshCw className={`h-4 w-4 ${previewMutation.isPending ? "animate-spin" : ""}`} />
-								Yenile
+								Zorla Yenile
 							</button>
 							<button
 								onClick={() => startSyncMutation.mutate()}

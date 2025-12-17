@@ -16,14 +16,15 @@
     "apps/server": {
       "name": "server",
       "dependencies": {
+        "@hono/node-server": "^1.19.7",
         "@hono/trpc-server": "^0.4.0",
         "@my-better-t-app/api": "workspace:*",
         "@my-better-t-app/auth": "workspace:*",
         "@my-better-t-app/db": "workspace:*",
-        "@trpc/server": "catalog:",
+        "@trpc/server": "^11.8.0",
         "better-auth": "catalog:",
         "dotenv": "catalog:",
-        "hono": "catalog:",
+        "hono": "^4.11.1",
         "zod": "catalog:",
       },
       "devDependencies": {
@@ -223,6 +224,8 @@
     "@floating-ui/react-dom": ["@floating-ui/react-dom@2.1.6", "", { "dependencies": { "@floating-ui/dom": "^1.7.4" }, "peerDependencies": { "react": ">=16.8.0", "react-dom": ">=16.8.0" } }, "sha512-4JX6rEatQEvlmgU80wZyq9RT96HZJa88q8hp0pBd+LrczeDI4o6uA2M+uvxngVHo4Ihr8uibXxH6+70zhAFrVw=="],
 
     "@floating-ui/utils": ["@floating-ui/utils@0.2.10", "", {}, "sha512-aGTxbpbg8/b5JfU1HXSrbH3wXZuLPJcNEcZQFMxLs3oSzgtVu6nFPkbbGGUvBcUjKV2YyB9Wxxabo+HEH9tcRQ=="],
+
+    "@hono/node-server": ["@hono/node-server@1.19.7", "", { "peerDependencies": { "hono": "^4" } }, "sha512-vUcD0uauS7EU2caukW8z5lJKtoGMokxNbJtBiwHgpqxEXokaHCBkQUmCHhjFB1VUTWdqj25QoMkMKzgjq+uhrw=="],
 
     "@hono/trpc-server": ["@hono/trpc-server@0.4.1", "", { "peerDependencies": { "@trpc/server": "^10.10.0 || >11.0.0-rc", "hono": ">=4.0.0" } }, "sha512-5D4gA+MpJxUzqCEDgZMlhxz1G8BkoneR+N+bD7Kt28LPJ0jAhXp1GA3ucpV6KxMBBLvFXIAFAfzdBeRmz12Pkw=="],
 

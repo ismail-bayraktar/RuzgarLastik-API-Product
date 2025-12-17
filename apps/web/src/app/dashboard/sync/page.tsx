@@ -14,24 +14,17 @@ export default function SyncPage() {
 
 	const syncHistory = useQuery(trpc.sync.history.queryOptions({ limit: 10 }));
 	
-	const startSyncMutation = useMutation({
-		mutationFn: async () => {
-			return trpc.sync.start.mutate({
-				mode,
-				categories: selectedCategories as any,
-				dryRun,
-				testMode,
-				productLimit: testMode ? productLimit : undefined,
-			});
-		},
-		onSuccess: (data) => {
-			toast.success(`Sync baslatildi! Session ID: ${data.sessionId}`);
-			syncHistory.refetch();
-		},
-		onError: (error) => {
-			toast.error(`Hata: ${error.message}`);
-		},
-	});
+	const startSyncMutation = useMutation(
+		trpc.sync.start.mutationOptions({
+			onSuccess: (data) => {
+				toast.success(`Sync baslatildi! Session ID: ${data.sessionId}`);
+				syncHistory.refetch();
+			},
+			onError: (error) => {
+				toast.error(`Hata: ${error.message}`);
+			},
+		})
+	);
 
 	const toggleCategory = (category: string) => {
 		if (selectedCategories.includes(category)) {
@@ -176,7 +169,13 @@ export default function SyncPage() {
 							</div>
 
 							<button
-								onClick={() => startSyncMutation.mutate()}
+								onClick={() => startSyncMutation.mutate({
+									mode,
+									categories: selectedCategories as any,
+									dryRun,
+									testMode,
+									productLimit: testMode ? productLimit : undefined,
+								})}
 								disabled={startSyncMutation.isPending || selectedCategories.length === 0}
 								className="w-full inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3 px-6 rounded-lg font-medium hover:bg-primary/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
 							>

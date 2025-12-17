@@ -77,28 +77,25 @@ export class SupplierService {
   }
 
   private async getRealProducts(options?: {
-    category?: "tire" | "rim" | "battery";
+    category?: string;
     page?: number;
     limit?: number;
   }): Promise<SupplierApiResponse> {
-    if (!this.apiUrl || !this.apiKey) {
-      throw new Error("Supplier API URL and API Key are required for real API calls");
-    }
-
     const { category, page = 1, limit = 50 } = options || {};
 
-    const url = new URL(`${this.apiUrl}/products`);
-    if (category) url.searchParams.append("category", category);
-    url.searchParams.append("page", page.toString());
-    url.searchParams.append("limit", limit.toString());
+    let url = process.env.SUPPLIER_API_ALL;
 
-    const response = await fetch(url.toString(), {
-      method: "GET",
-      headers: {
-        "Authorization": `Bearer ${this.apiKey}`,
-        "Content-Type": "application/json",
-      },
-    });
+    if (category === "tire") url = process.env.SUPPLIER_API_LASTIK;
+    if (category === "rim") url = process.env.SUPPLIER_API_JANT;
+    if (category === "battery") url = process.env.SUPPLIER_API_AKU;
+    if (category === "katalog") url = process.env.SUPPLIER_API_KATALOG;
+    if (category === "jant_on_siparis") url = process.env.SUPPLIER_API_JANT_ON_SIPARIS;
+
+    if (!url) {
+      throw new Error(`Supplier API URL not found for category: ${category || 'all'}`);
+    }
+
+    const response = await fetch(url);
 
     if (!response.ok) {
       throw new Error(`Supplier API error: ${response.status} ${response.statusText}`);
@@ -106,12 +103,48 @@ export class SupplierService {
 
     const data = await response.json();
     
+    // Degeras API returns an array directly or under a property
+    const rawProducts = Array.isArray(data) ? data : (data.products || data.data || []);
+    
+    // Transform Degeras data to our SupplierProduct format
+    const products: SupplierProduct[] = rawProducts.map((p: any) => ({
+      supplierSku: p.StokKodu || p.sku || p.id,
+      title: p.StokAdi || p.name || p.title,
+      brand: p.Marka || p.brand || "",
+      model: p.Model || p.model || "",
+      category: this.mapCategory(p, category),
+      price: parseFloat(p.Fiyat || p.price || "0"),
+      stock: parseInt(p.StokAdet || p.stock || "0"),
+      barcode: p.Barkod || p.barcode || "",
+      description: p.Aciklama || p.description || "",
+      images: p.Resimler || p.images || [],
+      metafields: p
+    }));
+
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedProducts = products.slice(startIndex, endIndex);
+
     return {
-      products: data.products || [],
-      total: data.total || 0,
-      page: data.page || page,
-      hasMore: data.hasMore || false,
+      products: paginatedProducts,
+      total: products.length,
+      page,
+      hasMore: endIndex < products.length,
     };
+  }
+
+  private mapCategory(p: any, requestedCategory?: string): "tire" | "rim" | "battery" {
+    if (requestedCategory === "tire") return "tire";
+    if (requestedCategory === "rim") return "rim";
+    if (requestedCategory === "battery") return "battery";
+    
+    // Simple heuristic if category is not requested specifically
+    const name = (p.StokAdi || "").toLowerCase();
+    if (name.includes("lastik")) return "tire";
+    if (name.includes("jant")) return "rim";
+    if (name.includes("aku") || name.includes("akü")) return "battery";
+    
+    return "tire"; // Default
   }
 
   async getProductBySku(sku: string): Promise<SupplierProduct | null> {

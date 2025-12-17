@@ -19,5 +19,6 @@ export const auth = betterAuth({
 			secure: true,
 			httpOnly: true,
 		},
+		disableTelemetry: true,
 	},
 });

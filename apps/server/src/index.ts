@@ -36,4 +36,10 @@ app.get("/", (c) => {
 	return c.text("OK");
 });
 
-export default app;
+const port = process.env.PORT || 5000;
+console.log(`Server starting on http://localhost:${port}`);
+
+export default {
+	port,
+	fetch: app.fetch,
+};

@@ -1,0 +1,9 @@
+{
+  "projectId": "cc3a51c2-0cfb-47ee-989b-28f871c9d114",
+  "createdAt": 1765972359134,
+  "startupCommands": [
+    "bun install",
+    "cd apps/server && bun run dev",
+    "cd apps/web && bun run dev"
+  ]
+}

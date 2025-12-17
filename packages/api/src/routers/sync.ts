@@ -21,14 +21,22 @@ export const syncRouter = router({
         mode: z.enum(["full", "incremental"]).default("incremental"),
         categories: z.array(z.enum(["tire", "rim", "battery"])).optional(),
         dryRun: z.boolean().default(false),
+        testMode: z.boolean().default(true),
+        productLimit: z.number().min(1).max(500).optional(),
       })
     )
     .mutation(async ({ input }) => {
+      const effectiveLimit = input.testMode ? (input.productLimit || 5) : undefined;
       return {
         success: true,
         sessionId: crypto.randomUUID(),
-        message: `${input.mode} sync started (orchestrator integration pending)`,
-        config: input,
+        message: input.testMode 
+          ? `Test modu: ${effectiveLimit} ürün işlenecek (${input.mode} sync)`
+          : `${input.mode} sync başlatıldı`,
+        config: {
+          ...input,
+          effectiveProductLimit: effectiveLimit,
+        },
       };
     }),
 

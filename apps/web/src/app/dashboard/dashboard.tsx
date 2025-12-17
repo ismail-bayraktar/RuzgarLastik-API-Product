@@ -3,6 +3,7 @@ import { authClient } from "@/lib/auth-client";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import Link from "next/link";
+import { useState } from "react";
 import {
 	Package,
 	CheckCircle2,
@@ -15,13 +16,56 @@ import {
 	DollarSign,
 	ArrowRight,
 	Settings,
+	HelpCircle,
+	X,
+	FlaskConical,
+	Workflow,
 } from "lucide-react";
+
+const workflowSteps = [
+	{
+		step: 1,
+		title: "API Bağlantısı Test Et",
+		description: "Tedarikçi API'sinin çalıştığını doğrulayın. API Test sayfasından her kategoriyi test edin.",
+		link: "/dashboard/api-test",
+		icon: FlaskConical,
+	},
+	{
+		step: 2,
+		title: "Shopify Bağlantısını Kontrol Et",
+		description: "Ayarlar sayfasından Shopify bağlantısını test edin ve env değişkenlerinin doğru olduğundan emin olun.",
+		link: "/dashboard/settings",
+		icon: Settings,
+	},
+	{
+		step: 3,
+		title: "Fiyat Kuralları Oluştur",
+		description: "Kategori ve segment bazlı fiyat marjlarını belirleyin. Varsayılan kuralları kullanabilirsiniz.",
+		link: "/dashboard/pricing-rules",
+		icon: DollarSign,
+	},
+	{
+		step: 4,
+		title: "Test Sync Çalıştır",
+		description: "5-10 ürün ile test sync çalıştırın. Dry Run modunda Shopify'a veri gönderilmez.",
+		link: "/dashboard/sync",
+		icon: RefreshCw,
+	},
+	{
+		step: 5,
+		title: "Logları İncele",
+		description: "API test ve sync loglarını kontrol edin. Hataları tespit edip düzeltin.",
+		link: "/dashboard/logs",
+		icon: AlertCircle,
+	},
+];
 
 export default function Dashboard({
 	session,
 }: {
 	session: typeof authClient.$Infer.Session;
 }) {
+	const [showWorkflowGuide, setShowWorkflowGuide] = useState(true);
 	const syncStats = useQuery(trpc.products.syncStats.queryOptions());
 	const settingsData = useQuery(trpc.settings.get.queryOptions());
 	const shopifyConfig = useQuery(trpc.settings.shopifyConfig.queryOptions());
@@ -29,6 +73,40 @@ export default function Dashboard({
 
 	return (
 		<div className="space-y-6">
+			{showWorkflowGuide && (
+				<div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/20 rounded-lg p-5">
+					<div className="flex items-start justify-between mb-4">
+						<div className="flex items-center gap-2">
+							<Workflow className="h-5 w-5 text-primary" />
+							<h3 className="font-semibold text-foreground">Panel Workflow Rehberi</h3>
+						</div>
+						<button
+							onClick={() => setShowWorkflowGuide(false)}
+							className="text-muted-foreground hover:text-foreground"
+						>
+							<X className="h-4 w-4" />
+						</button>
+					</div>
+					<div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+						{workflowSteps.map((step) => (
+							<Link
+								key={step.step}
+								href={step.link}
+								className="group p-3 bg-card/50 rounded-lg border border-border hover:border-primary/50 hover:bg-card transition-all"
+							>
+								<div className="flex items-center gap-2 mb-2">
+									<span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold">
+										{step.step}
+									</span>
+									<step.icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+								</div>
+								<p className="text-sm font-medium text-foreground mb-1">{step.title}</p>
+								<p className="text-xs text-muted-foreground line-clamp-2">{step.description}</p>
+							</Link>
+						))}
+					</div>
+				</div>
+			)}
 			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 				<StatCard
 					label="Toplam Urun"

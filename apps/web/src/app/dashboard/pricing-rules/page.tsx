@@ -25,17 +25,9 @@ export default function PricingRulesPage() {
 
 	const priceRules = useQuery(trpc.priceRules.list.queryOptions());
 	
-	const createRuleMutation = useMutation({
-		mutationFn: async () => {
-			return trpc.priceRules.create.mutate({
-				...formData,
-				brand: formData.brand || undefined,
-				segment: formData.segment || undefined,
-				fixedMarkup: formData.fixedMarkup || undefined,
-			});
-		},
+	const createRuleMutation = useMutation(trpc.priceRules.create.mutationOptions({
 		onSuccess: () => {
-			toast.success("Fiyat kurali olusturuldu!");
+			toast.success("Fiyat kuralı oluşturuldu!");
 			setSheetOpen(false);
 			resetForm();
 			priceRules.refetch();
@@ -43,18 +35,17 @@ export default function PricingRulesPage() {
 		onError: (error) => {
 			toast.error(`Hata: ${error.message}`);
 		},
-	});
+	}));
 
-	const seedDefaultsMutation = useMutation({
-		mutationFn: async () => trpc.priceRules.seedDefaults.mutate(),
+	const seedDefaultsMutation = useMutation(trpc.priceRules.seedDefaults.mutationOptions({
 		onSuccess: () => {
-			toast.success("Varsayilan kurallar olusturuldu!");
+			toast.success("Varsayılan kurallar oluşturuldu!");
 			priceRules.refetch();
 		},
 		onError: (error) => {
 			toast.error(`Hata: ${error.message}`);
 		},
-	});
+	}));
 
 	const resetForm = () => {
 		setFormData({
@@ -225,7 +216,12 @@ export default function PricingRulesPage() {
 						</div>
 
 						<button
-							onClick={() => createRuleMutation.mutate()}
+							onClick={() => createRuleMutation.mutate({
+								...formData,
+								brand: formData.brand || undefined,
+								segment: formData.segment || undefined,
+								fixedMarkup: formData.fixedMarkup || undefined,
+							})}
 							disabled={createRuleMutation.isPending}
 							className="w-full inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3 rounded-lg font-medium hover:bg-primary/90 transition disabled:opacity-50"
 						>

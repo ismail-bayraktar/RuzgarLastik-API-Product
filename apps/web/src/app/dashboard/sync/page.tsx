@@ -3,11 +3,13 @@ import { useState } from "react";
 import { trpc } from "@/utils/trpc";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Play, Loader2, Clock, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { Play, Loader2, Clock, CheckCircle2, XCircle, AlertCircle, FlaskConical, Info } from "lucide-react";
 
 export default function SyncPage() {
 	const [mode, setMode] = useState<"full" | "incremental">("incremental");
 	const [dryRun, setDryRun] = useState(false);
+	const [testMode, setTestMode] = useState(true);
+	const [productLimit, setProductLimit] = useState(5);
 	const [selectedCategories, setSelectedCategories] = useState<string[]>(["tire", "rim", "battery"]);
 
 	const syncHistory = useQuery(trpc.sync.history.queryOptions({ limit: 10 }));
@@ -18,6 +20,8 @@ export default function SyncPage() {
 				mode,
 				categories: selectedCategories as any,
 				dryRun,
+				testMode,
+				productLimit: testMode ? productLimit : undefined,
 			});
 		},
 		onSuccess: (data) => {
@@ -110,8 +114,54 @@ export default function SyncPage() {
 								</div>
 							</div>
 
-							<div>
+							<div className="space-y-3 p-4 bg-muted/30 rounded-lg border border-border">
+								<div className="flex items-center gap-2 mb-2">
+									<FlaskConical className="h-4 w-4 text-amber-500" />
+									<span className="text-sm font-medium text-foreground">Test Modu Ayarları</span>
+								</div>
+								
 								<label className="flex items-center gap-3 cursor-pointer">
+									<input
+										type="checkbox"
+										checked={testMode}
+										onChange={(e) => setTestMode(e.target.checked)}
+										className="w-4 h-4 rounded border-input bg-background text-primary focus:ring-ring"
+									/>
+									<div>
+										<span className="text-sm text-foreground">Test Modu</span>
+										<p className="text-xs text-muted-foreground">Sınırlı sayıda ürünle hızlı test</p>
+									</div>
+								</label>
+
+								{testMode && (
+									<div className="ml-7">
+										<label className="block text-xs text-muted-foreground mb-1">Ürün Limiti</label>
+										<div className="flex items-center gap-2">
+											<input
+												type="number"
+												value={productLimit}
+												onChange={(e) => setProductLimit(Math.max(1, Number(e.target.value)))}
+												min={1}
+												max={100}
+												className="w-24 px-3 py-1.5 bg-background border border-input rounded-lg text-sm text-foreground"
+											/>
+											<span className="text-xs text-muted-foreground">ürün işlenecek</span>
+										</div>
+										<div className="flex gap-1 mt-2">
+											{[5, 10, 25, 50].map((num) => (
+												<button
+													key={num}
+													onClick={() => setProductLimit(num)}
+													className={`px-2 py-1 text-xs rounded ${productLimit === num ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
+												>
+													{num}
+												</button>
+											))}
+										</div>
+									</div>
+								)}
+
+								<label className="flex items-center gap-3 cursor-pointer mt-2">
 									<input
 										type="checkbox"
 										checked={dryRun}
@@ -119,8 +169,8 @@ export default function SyncPage() {
 										className="w-4 h-4 rounded border-input bg-background text-primary focus:ring-ring"
 									/>
 									<div>
-										<span className="text-sm text-foreground">Dry Run (Test Mode)</span>
-										<p className="text-xs text-muted-foreground">Shopify'a veri gondermeden test eder</p>
+										<span className="text-sm text-foreground">Dry Run</span>
+										<p className="text-xs text-muted-foreground">Shopify'a veri göndermeden simüle et</p>
 									</div>
 								</label>
 							</div>

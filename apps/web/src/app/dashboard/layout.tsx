@@ -17,9 +17,9 @@ export default async function DashboardLayout({
 	}
 
 	return (
-		<div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+		<div className="min-h-screen bg-background">
 			<DashboardNav userName={session.user.name} />
-			<main>{children}</main>
+			<main className="lg:pl-64">{children}</main>
 		</div>
 	);
 }

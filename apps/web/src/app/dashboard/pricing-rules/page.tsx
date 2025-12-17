@@ -2,10 +2,18 @@
 import { useState } from "react";
 import { trpc } from "@/utils/trpc";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import Link from "next/link";
+import { toast } from "sonner";
+import { Plus, Loader2, Sparkles, X } from "lucide-react";
+import {
+	Sheet,
+	SheetContent,
+	SheetHeader,
+	SheetTitle,
+	SheetDescription,
+} from "@/components/ui/sheet";
 
 export default function PricingRulesPage() {
-	const [showForm, setShowForm] = useState(false);
+	const [sheetOpen, setSheetOpen] = useState(false);
 	const [formData, setFormData] = useState({
 		category: "tire" as "tire" | "rim" | "battery",
 		brand: "",
@@ -27,154 +35,108 @@ export default function PricingRulesPage() {
 			});
 		},
 		onSuccess: () => {
-			alert("Fiyat kuralı oluşturuldu!");
-			setShowForm(false);
+			toast.success("Fiyat kurali olusturuldu!");
+			setSheetOpen(false);
+			resetForm();
 			priceRules.refetch();
+		},
+		onError: (error) => {
+			toast.error(`Hata: ${error.message}`);
 		},
 	});
 
 	const seedDefaultsMutation = useMutation({
 		mutationFn: async () => trpc.priceRules.seedDefaults.mutate(),
 		onSuccess: () => {
-			alert("Varsayılan kurallar oluşturuldu!");
+			toast.success("Varsayilan kurallar olusturuldu!");
 			priceRules.refetch();
+		},
+		onError: (error) => {
+			toast.error(`Hata: ${error.message}`);
 		},
 	});
 
+	const resetForm = () => {
+		setFormData({
+			category: "tire",
+			brand: "",
+			segment: "",
+			marginPercent: 20,
+			fixedMarkup: 0,
+			priority: 10,
+		});
+	};
+
+	const getCategoryLabel = (category: string) => {
+		switch (category) {
+			case "tire": return "Lastik";
+			case "rim": return "Jant";
+			case "battery": return "Aku";
+			default: return category;
+		}
+	};
+
 	return (
-		<div className="text-white p-8">
+		<div className="p-6 lg:p-8">
 			<div className="max-w-7xl mx-auto">
 				<div className="mb-8">
-					<h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-600 bg-clip-text text-transparent">
-						Fiyat Kuralları
-					</h1>
-					<p className="text-slate-400 mt-1">Kategori ve marka bazlı fiyatlandırma</p>
+					<h1 className="text-2xl font-semibold text-foreground">Fiyat Kurallari</h1>
+					<p className="text-muted-foreground mt-1">Kategori ve marka bazli fiyatlandirma</p>
 				</div>
 
-				<div className="mb-6 flex gap-4">
+				<div className="flex gap-3 mb-6">
 					<button
-						onClick={() => setShowForm(!showForm)}
-						className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-medium py-2 px-6 rounded-lg transition-all"
+						onClick={() => setSheetOpen(true)}
+						className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition"
 					>
-						{showForm ? "İptal" : "Yeni Kural Ekle"}
+						<Plus className="h-4 w-4" />
+						Yeni Kural Ekle
 					</button>
 					<button
 						onClick={() => seedDefaultsMutation.mutate()}
 						disabled={seedDefaultsMutation.isPending}
-						className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 text-white font-medium py-2 px-6 rounded-lg transition-all"
+						className="inline-flex items-center gap-2 px-4 py-2 bg-muted text-foreground rounded-lg text-sm font-medium hover:bg-muted/80 transition disabled:opacity-50"
 					>
-						Varsayılan Kuralları Oluştur
+						{seedDefaultsMutation.isPending ? (
+							<Loader2 className="h-4 w-4 animate-spin" />
+						) : (
+							<Sparkles className="h-4 w-4" />
+						)}
+						Varsayilan Kurallar
 					</button>
 				</div>
 
-				{showForm && (
-					<div className="bg-slate-800/50 backdrop-blur-sm border border-blue-500/20 rounded-lg p-6 shadow-xl mb-6">
-						<h2 className="text-2xl font-semibold text-blue-300 mb-6">Yeni Fiyat Kuralı</h2>
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<div>
-								<label className="block text-sm font-medium text-slate-300 mb-2">Kategori</label>
-								<select
-									value={formData.category}
-									onChange={(e) => setFormData({ ...formData, category: e.target.value as any })}
-									className="w-full bg-slate-700 text-white rounded-lg px-4 py-2 border border-slate-600"
-								>
-									<option value="tire">Lastik</option>
-									<option value="rim">Jant</option>
-									<option value="battery">Akü</option>
-								</select>
-							</div>
-
-							<div>
-								<label className="block text-sm font-medium text-slate-300 mb-2">Marka (opsiyonel)</label>
-								<input
-									type="text"
-									value={formData.brand}
-									onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-									placeholder="örn: Michelin"
-									className="w-full bg-slate-700 text-white rounded-lg px-4 py-2 border border-slate-600"
-								/>
-							</div>
-
-							<div>
-								<label className="block text-sm font-medium text-slate-300 mb-2">Segment (opsiyonel)</label>
-								<select
-									value={formData.segment}
-									onChange={(e) => setFormData({ ...formData, segment: e.target.value as any })}
-									className="w-full bg-slate-700 text-white rounded-lg px-4 py-2 border border-slate-600"
-								>
-									<option value="">Seçiniz</option>
-									<option value="premium">Premium</option>
-									<option value="mid">Orta</option>
-									<option value="economy">Ekonomi</option>
-								</select>
-							</div>
-
-							<div>
-								<label className="block text-sm font-medium text-slate-300 mb-2">Marj % (Zorunlu)</label>
-								<input
-									type="number"
-									value={formData.marginPercent}
-									onChange={(e) => setFormData({ ...formData, marginPercent: Number(e.target.value) })}
-									className="w-full bg-slate-700 text-white rounded-lg px-4 py-2 border border-slate-600"
-								/>
-							</div>
-
-							<div>
-								<label className="block text-sm font-medium text-slate-300 mb-2">Sabit Ekleme (TL)</label>
-								<input
-									type="number"
-									value={formData.fixedMarkup}
-									onChange={(e) => setFormData({ ...formData, fixedMarkup: Number(e.target.value) })}
-									className="w-full bg-slate-700 text-white rounded-lg px-4 py-2 border border-slate-600"
-								/>
-							</div>
-
-							<div>
-								<label className="block text-sm font-medium text-slate-300 mb-2">Öncelik (düşük = önce)</label>
-								<input
-									type="number"
-									value={formData.priority}
-									onChange={(e) => setFormData({ ...formData, priority: Number(e.target.value) })}
-									className="w-full bg-slate-700 text-white rounded-lg px-4 py-2 border border-slate-600"
-								/>
-							</div>
-						</div>
-
-						<button
-							onClick={() => createRuleMutation.mutate()}
-							disabled={createRuleMutation.isPending}
-							className="mt-6 w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 disabled:opacity-50 text-white font-bold py-3 rounded-lg"
-						>
-							{createRuleMutation.isPending ? "Oluşturuluyor..." : "Kural Oluştur"}
-						</button>
+				<div className="bg-card border border-border rounded-lg overflow-hidden">
+					<div className="p-4 border-b border-border">
+						<h2 className="text-sm font-medium text-foreground">Mevcut Kurallar</h2>
 					</div>
-				)}
-
-				<div className="bg-slate-800/50 backdrop-blur-sm border border-blue-500/20 rounded-lg p-6 shadow-xl">
-					<h2 className="text-2xl font-semibold text-blue-300 mb-6">Mevcut Kurallar</h2>
 					
 					{priceRules.isLoading ? (
-						<p className="text-slate-400">Yükleniyor...</p>
+						<div className="flex items-center justify-center py-12">
+							<Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+						</div>
 					) : priceRules.data?.rules.length === 0 ? (
-						<p className="text-slate-400">Henüz kural yok. Varsayılan kuralları oluşturun veya yeni kural ekleyin.</p>
+						<div className="text-center py-12">
+							<p className="text-muted-foreground">Henuz kural yok. Varsayilan kurallari olusturun veya yeni kural ekleyin.</p>
+						</div>
 					) : (
-						<div className="space-y-3">
+						<div className="divide-y divide-border">
 							{priceRules.data?.rules.map((rule: any) => (
-								<div key={rule.id} className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
-									<div className="flex justify-between items-start">
+								<div key={rule.id} className="p-4 hover:bg-muted/30 transition-colors">
+									<div className="flex items-start justify-between">
 										<div>
-											<h3 className="font-semibold text-white">
-												{rule.category === "tire" ? "Lastik" : rule.category === "rim" ? "Jant" : "Akü"}
+											<h3 className="text-sm font-medium text-foreground">
+												{getCategoryLabel(rule.category)}
 												{rule.brand && ` - ${rule.brand}`}
 												{rule.segment && ` (${rule.segment})`}
 											</h3>
-											<p className="text-sm text-slate-400 mt-1">
+											<p className="text-xs text-muted-foreground mt-1">
 												Marj: %{rule.marginPercent}
 												{rule.fixedMarkup && ` + ${rule.fixedMarkup} TL`}
+												{" | "}Oncelik: {rule.priority}
 											</p>
-											<p className="text-xs text-slate-500 mt-1">Öncelik: {rule.priority}</p>
 										</div>
-										<span className={`px-2 py-1 rounded text-xs ${rule.active ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
+										<span className={`text-xs px-2 py-1 rounded ${rule.active ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"}`}>
 											{rule.active ? "Aktif" : "Pasif"}
 										</span>
 									</div>
@@ -184,6 +146,99 @@ export default function PricingRulesPage() {
 					)}
 				</div>
 			</div>
+
+			<Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+				<SheetContent>
+					<SheetHeader>
+						<SheetTitle>Yeni Fiyat Kurali</SheetTitle>
+						<SheetDescription>Kategori ve marka bazli fiyatlandirma kurali olusturun</SheetDescription>
+					</SheetHeader>
+
+					<div className="space-y-4 mt-6">
+						<div>
+							<label className="block text-sm text-muted-foreground mb-2">Kategori</label>
+							<select
+								value={formData.category}
+								onChange={(e) => setFormData({ ...formData, category: e.target.value as any })}
+								className="w-full px-3 py-2 bg-background border border-input rounded-lg text-foreground"
+							>
+								<option value="tire">Lastik</option>
+								<option value="rim">Jant</option>
+								<option value="battery">Aku</option>
+							</select>
+						</div>
+
+						<div>
+							<label className="block text-sm text-muted-foreground mb-2">Marka (opsiyonel)</label>
+							<input
+								type="text"
+								value={formData.brand}
+								onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+								placeholder="orn: Michelin"
+								className="w-full px-3 py-2 bg-background border border-input rounded-lg text-foreground"
+							/>
+						</div>
+
+						<div>
+							<label className="block text-sm text-muted-foreground mb-2">Segment (opsiyonel)</label>
+							<select
+								value={formData.segment}
+								onChange={(e) => setFormData({ ...formData, segment: e.target.value as any })}
+								className="w-full px-3 py-2 bg-background border border-input rounded-lg text-foreground"
+							>
+								<option value="">Seciniz</option>
+								<option value="premium">Premium</option>
+								<option value="mid">Orta</option>
+								<option value="economy">Ekonomi</option>
+							</select>
+						</div>
+
+						<div className="grid grid-cols-2 gap-4">
+							<div>
+								<label className="block text-sm text-muted-foreground mb-2">Marj %</label>
+								<input
+									type="number"
+									value={formData.marginPercent}
+									onChange={(e) => setFormData({ ...formData, marginPercent: Number(e.target.value) })}
+									className="w-full px-3 py-2 bg-background border border-input rounded-lg text-foreground"
+								/>
+							</div>
+							<div>
+								<label className="block text-sm text-muted-foreground mb-2">Sabit Ekleme (TL)</label>
+								<input
+									type="number"
+									value={formData.fixedMarkup}
+									onChange={(e) => setFormData({ ...formData, fixedMarkup: Number(e.target.value) })}
+									className="w-full px-3 py-2 bg-background border border-input rounded-lg text-foreground"
+								/>
+							</div>
+						</div>
+
+						<div>
+							<label className="block text-sm text-muted-foreground mb-2">Oncelik (dusuk = once)</label>
+							<input
+								type="number"
+								value={formData.priority}
+								onChange={(e) => setFormData({ ...formData, priority: Number(e.target.value) })}
+								className="w-full px-3 py-2 bg-background border border-input rounded-lg text-foreground"
+							/>
+						</div>
+
+						<button
+							onClick={() => createRuleMutation.mutate()}
+							disabled={createRuleMutation.isPending}
+							className="w-full inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3 rounded-lg font-medium hover:bg-primary/90 transition disabled:opacity-50"
+						>
+							{createRuleMutation.isPending ? (
+								<Loader2 className="h-4 w-4 animate-spin" />
+							) : (
+								<Plus className="h-4 w-4" />
+							)}
+							{createRuleMutation.isPending ? "Olusturuluyor..." : "Kural Olustur"}
+						</button>
+					</div>
+				</SheetContent>
+			</Sheet>
 		</div>
 	);
 }

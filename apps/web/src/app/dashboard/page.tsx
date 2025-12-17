@@ -8,13 +8,13 @@ export default async function DashboardPage() {
 	});
 
 	return (
-		<div className="text-white p-8">
+		<div className="p-6 lg:p-8">
 			<div className="max-w-7xl mx-auto">
 				<div className="mb-8">
-					<h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
-						Genel Bakış
+					<h1 className="text-2xl font-semibold text-foreground">
+						Genel Bakis
 					</h1>
-					<p className="text-slate-400 mt-1">Hoş geldin, {session?.user.name}</p>
+					<p className="text-muted-foreground mt-1">Hos geldin, {session?.user.name}</p>
 				</div>
 				<Dashboard session={session!} />
 			</div>

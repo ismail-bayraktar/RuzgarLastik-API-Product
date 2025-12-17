@@ -62,8 +62,18 @@ export default function DashboardNav({ userName }: { userName: string }) {
 				<div className="flex flex-col h-full">
 					<div className="p-6 border-b border-border">
 						<div className="flex items-center justify-between">
-							<Link href="/dashboard" className="flex items-center gap-2">
-								<div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+							<Link href="/dashboard" className="flex items-center gap-3">
+								<img
+									src="/logo.svg"
+									alt="Ruzgar Lastik"
+									className="h-8 w-auto"
+									onError={(e) => {
+										e.currentTarget.style.display = 'none';
+										const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+										if (fallback) fallback.style.display = 'flex';
+									}}
+								/>
+								<div className="w-8 h-8 bg-primary rounded-lg items-center justify-center hidden">
 									<span className="text-primary-foreground font-bold text-sm">RL</span>
 								</div>
 								<span className="font-semibold text-foreground">Ruzgar Lastik</span>

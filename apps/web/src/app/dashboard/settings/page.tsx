@@ -13,6 +13,22 @@ export default function SettingsPage() {
 	const supplierConfig = useQuery(trpc.settings.supplierConfig.queryOptions());
 	
 	const [showAccessToken, setShowAccessToken] = useState(false);
+	const [shopifyTestResult, setShopifyTestResult] = useState<{success: boolean; shop?: any; error?: string} | null>(null);
+	
+	const testShopifyMutation = useMutation(trpc.settings.testShopifyConnection.mutationOptions({
+		onSuccess: (data) => {
+			setShopifyTestResult(data);
+			if (data.success) {
+				toast.success(`Shopify bağlantısı başarılı: ${data.shop?.name}`);
+				queryClient.invalidateQueries({ queryKey: ["settings"] });
+			} else {
+				toast.error(`Bağlantı hatası: ${data.error}`);
+			}
+		},
+		onError: (error) => {
+			toast.error(`Test hatası: ${error.message}`);
+		},
+	}));
 
 	const [formData, setFormData] = useState({
 		batchSize: 50,
@@ -175,6 +191,18 @@ SHOPIFY_API_VERSION=${shopifyFormData.apiVersion}`}
 							</div>
 							
 							<div className="flex items-center gap-3 pt-2">
+								<button
+									onClick={() => testShopifyMutation.mutate()}
+									disabled={testShopifyMutation.isPending}
+									className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition disabled:opacity-50"
+								>
+									{testShopifyMutation.isPending ? (
+										<Loader2 className="h-4 w-4 animate-spin" />
+									) : (
+										<CheckCircle className="h-4 w-4" />
+									)}
+									{testShopifyMutation.isPending ? 'Test Ediliyor...' : 'Bağlantıyı Test Et'}
+								</button>
 								<a
 									href="https://admin.shopify.com/store"
 									target="_blank"
@@ -184,16 +212,34 @@ SHOPIFY_API_VERSION=${shopifyFormData.apiVersion}`}
 									<ExternalLink className="h-4 w-4" />
 									Shopify Admin
 								</a>
-								<a
-									href="https://shopify.dev/docs/api/admin-graphql"
-									target="_blank"
-									rel="noopener noreferrer"
-									className="inline-flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:text-foreground border border-border rounded-lg hover:bg-muted transition"
-								>
-									<ExternalLink className="h-4 w-4" />
-									API Dokumantasyonu
-								</a>
 							</div>
+							
+							{shopifyTestResult && (
+								<div className={`mt-4 p-4 rounded-lg border ${shopifyTestResult.success ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
+									<div className="flex items-start gap-3">
+										{shopifyTestResult.success ? (
+											<CheckCircle className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
+										) : (
+											<XCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+										)}
+										<div className="flex-1">
+											<p className={`text-sm font-medium ${shopifyTestResult.success ? 'text-green-500' : 'text-red-500'}`}>
+												{shopifyTestResult.success ? 'Bağlantı Başarılı' : 'Bağlantı Hatası'}
+											</p>
+											{shopifyTestResult.success && shopifyTestResult.shop && (
+												<div className="mt-2 space-y-1 text-xs text-muted-foreground">
+													<p><span className="font-medium">Mağaza:</span> {shopifyTestResult.shop.name}</p>
+													<p><span className="font-medium">Email:</span> {shopifyTestResult.shop.email}</p>
+													<p><span className="font-medium">Domain:</span> {shopifyTestResult.shop.primaryDomain?.host || shopifyTestResult.shop.myshopifyDomain}</p>
+												</div>
+											)}
+											{shopifyTestResult.error && (
+												<p className="text-xs text-red-500/80 mt-1">{shopifyTestResult.error}</p>
+											)}
+										</div>
+									</div>
+								</div>
+							)}
 						</div>
 					</div>
 

@@ -1,4 +1,14 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+import path from "path";
+
+const envPath = path.resolve(import.meta.dir, "../.env");
+console.log("[ENV] Loading from:", envPath);
+const result = dotenv.config({ path: envPath });
+if (result.error) {
+	console.error("[ENV] Error:", result.error.message);
+} else {
+	console.log("[ENV] Loaded vars:", Object.keys(result.parsed || {}).length);
+}
 import { trpcServer } from "@hono/trpc-server";
 import { createContext } from "@my-better-t-app/api/context";
 import { appRouter } from "@my-better-t-app/api/routers/index";
@@ -36,6 +46,82 @@ app.use(
 
 app.get("/", (c) => {
 	return c.text("OK");
+});
+
+app.get("/api/shopify-test", async (c) => {
+	const shopDomain = process.env.SHOPIFY_SHOP_DOMAIN;
+	const accessToken = process.env.SHOPIFY_ACCESS_TOKEN;
+	const apiVersion = process.env.SHOPIFY_API_VERSION || "2024-10";
+	const locationId = process.env.SHOPIFY_LOCATION_ID;
+
+	if (!shopDomain || !accessToken) {
+		return c.json({
+			success: false,
+			error: "Missing SHOPIFY_SHOP_DOMAIN or SHOPIFY_ACCESS_TOKEN",
+			config: {
+				shopDomain: shopDomain ? "Set" : "Missing",
+				accessToken: accessToken ? "Set" : "Missing",
+				locationId: locationId ? "Set" : "Missing",
+				apiVersion,
+			}
+		}, 400);
+	}
+
+	try {
+		const url = `https://${shopDomain}/admin/api/${apiVersion}/graphql.json`;
+		const query = `{
+			shop {
+				name
+				email
+				myshopifyDomain
+				primaryDomain {
+					host
+				}
+			}
+		}`;
+
+		const response = await fetch(url, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"X-Shopify-Access-Token": accessToken,
+			},
+			body: JSON.stringify({ query }),
+		});
+
+		if (!response.ok) {
+			return c.json({
+				success: false,
+				error: `Shopify API error: ${response.status} ${response.statusText}`,
+				statusCode: response.status,
+			});
+		}
+
+		const data = await response.json();
+
+		if (data.errors) {
+			return c.json({
+				success: false,
+				error: "GraphQL errors",
+				errors: data.errors,
+			});
+		}
+
+		return c.json({
+			success: true,
+			shop: data.data?.shop,
+			config: {
+				shopDomain,
+				apiVersion,
+				locationId: locationId || "Not set",
+			}
+		});
+	} catch (error: any) {
+		return c.json({
+			success: false,
+			error: error.message,
+		}, 500);
+	}
 });
 
 app.get("/api/supplier-test", async (c) => {

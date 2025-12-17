@@ -3,7 +3,7 @@
   "createdAt": 1765972359134,
   "startupCommands": [
     "bun install",
-    "cd apps/server && bun run dev",
-    "cd apps/web && bun run dev"
+    "cd apps/server; bun run dev",
+    "cd apps/web; bun run dev"
   ]
 }

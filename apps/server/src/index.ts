@@ -14,7 +14,8 @@ import { createContext } from "@my-better-t-app/api/context";
 import { appRouter } from "@my-better-t-app/api/routers/index";
 import { auth } from "@my-better-t-app/auth";
 import { db } from "@my-better-t-app/db";
-import { apiTestLogs } from "@my-better-t-app/db/schema";
+import { apiTestLogs, productsCache, cacheMetadata } from "@my-better-t-app/db/schema";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
@@ -124,9 +125,27 @@ app.get("/api/shopify-test", async (c) => {
 	}
 });
 
+const CATEGORY_MAP: Record<string, string> = {
+	"Lastik": "tire",
+	"lastik": "tire",
+	"Jant": "rim",
+	"jant": "rim",
+	"Jant On Siparis": "rim",
+	"jant_on_siparis": "rim",
+	"Aku": "battery",
+	"aku": "battery",
+	"Katalog": "catalog",
+	"katalog": "catalog",
+	"Tumu": "all",
+	"all": "all",
+};
+
 app.get("/api/supplier-test", async (c) => {
 	const url = c.req.query("url");
-	const category = c.req.query("category") || "unknown";
+	const categoryRaw = c.req.query("category") || "unknown";
+	const saveToCache = c.req.query("cache") !== "false";
+	
+	const category = CATEGORY_MAP[categoryRaw] || categoryRaw;
 	
 	if (!url) {
 		return c.json({ success: false, error: "URL parameter is required" }, 400);
@@ -143,14 +162,14 @@ app.get("/api/supplier-test", async (c) => {
 			
 			try {
 				await db.insert(apiTestLogs).values({
-					category,
+					category: categoryRaw,
 					url,
 					success: false,
 					statusCode: response.status,
 					responseTimeMs: responseTime,
 					errorMessage,
 				});
-				console.log(`[API TEST LOG] Saved: ${category} - error ${response.status}`);
+				console.log(`[API TEST LOG] Saved: ${categoryRaw} - error ${response.status}`);
 			} catch (dbError) {
 				console.error("[API TEST LOG] DB Insert Error:", dbError);
 			}
@@ -169,21 +188,71 @@ app.get("/api/supplier-test", async (c) => {
 		
 		try {
 			await db.insert(apiTestLogs).values({
-				category,
+				category: categoryRaw,
 				url,
 				success: true,
 				statusCode: 200,
 				responseTimeMs: responseTime,
 				productCount,
 			});
-			console.log(`[API TEST LOG] Saved: ${category} - success`);
+			console.log(`[API TEST LOG] Saved: ${categoryRaw} - success`);
 		} catch (dbError) {
 			console.error("[API TEST LOG] DB Insert Error:", dbError);
+		}
+		
+		if (saveToCache && productCount > 0 && category !== "all" && category !== "catalog" && category !== "unknown") {
+			try {
+				console.log(`[CACHE] Saving ${productCount} products for category: ${category}`);
+				
+				await db.insert(cacheMetadata).values({ category, status: "fetching" })
+					.onConflictDoUpdate({ target: cacheMetadata.category, set: { status: "fetching", updatedAt: new Date() } });
+				
+				await db.delete(productsCache).where(eq(productsCache.category, category));
+				
+				const batchSize = 100;
+				let savedCount = 0;
+				
+				for (let i = 0; i < products.length; i += batchSize) {
+					const batch = products.slice(i, i + batchSize);
+					const values = batch.map((p: any) => ({
+						supplierSku: String(p.StokKodu || p.sku || p.id || `unknown-${i}`),
+						category,
+						title: String(p.StokAdi || p.name || p.title || "Untitled"),
+						brand: p.Marka || p.brand || null,
+						price: Math.round(parseFloat(p.Fiyat || p.price || "0") * 100),
+						stock: parseInt(p.StokAdet || p.stock || "0"),
+						updatedAt: new Date(),
+					}));
+					
+					await db.insert(productsCache).values(values).onConflictDoNothing();
+					savedCount += batch.length;
+				}
+				
+				await db.update(cacheMetadata)
+					.set({ 
+						status: "idle", 
+						lastFetchAt: new Date(), 
+						productCount: savedCount,
+						fetchDurationMs: responseTime,
+						errorMessage: null,
+						updatedAt: new Date() 
+					})
+					.where(eq(cacheMetadata.category, category));
+				
+				console.log(`[CACHE] Saved ${savedCount} products for ${category}`);
+			} catch (cacheError: any) {
+				console.error("[CACHE] Error saving to cache:", cacheError);
+				
+				await db.update(cacheMetadata)
+					.set({ status: "error", errorMessage: cacheError.message, updatedAt: new Date() })
+					.where(eq(cacheMetadata.category, category));
+			}
 		}
 		
 		return c.json({
 			success: true,
 			productCount,
+			cachedCategory: saveToCache && category !== "all" && category !== "catalog" ? category : null,
 			preview: Array.isArray(products) ? products.slice(0, 2) : products,
 		});
 	} catch (error: any) {
@@ -191,13 +260,13 @@ app.get("/api/supplier-test", async (c) => {
 		
 		try {
 			await db.insert(apiTestLogs).values({
-				category,
+				category: categoryRaw,
 				url,
 				success: false,
 				responseTimeMs: responseTime,
 				errorMessage: error.message,
 			});
-			console.log(`[API TEST LOG] Saved: ${category} - catch error`);
+			console.log(`[API TEST LOG] Saved: ${categoryRaw} - catch error`);
 		} catch (dbError) {
 			console.error("[API TEST LOG] DB Insert Error:", dbError);
 		}

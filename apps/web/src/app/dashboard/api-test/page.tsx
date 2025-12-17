@@ -86,12 +86,14 @@ export default function ApiTestPage() {
 				setResult({
 					success: true,
 					status: 200,
-					message: "Baglanti basarili!",
+					message: data.cachedCategory 
+						? `Baglanti basarili! Urunler "${data.cachedCategory}" kategorisinde cache'e kaydedildi.`
+						: "Baglanti basarili!",
 					data: data.preview,
 					responseTime,
 					productCount: data.productCount,
 				});
-				toast.success(`API baglantisi basarili! ${data.productCount} urun bulundu.`);
+				toast.success(`API baglantisi basarili! ${data.productCount} urun bulundu${data.cachedCategory ? " ve cache'e kaydedildi" : ""}.`);
 			} else {
 				setResult({
 					success: false,

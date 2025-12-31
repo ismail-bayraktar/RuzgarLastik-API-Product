@@ -26,7 +26,7 @@ export const cacheMetadata = pgTable("cache_metadata", {
 	status: varchar("status", { length: 20 }).default("idle"),
 	errorMessage: varchar("error_message", { length: 500 }),
 	autoRefreshEnabled: boolean("auto_refresh_enabled").default(true),
-	refreshIntervalHours: integer("refresh_interval_hours").default(24),
+	refreshIntervalHours: integer("refresh_interval_hours").default(6),
 	createdAt: timestamp("created_at").defaultNow(),
 	updatedAt: timestamp("updated_at").defaultNow(),
 });

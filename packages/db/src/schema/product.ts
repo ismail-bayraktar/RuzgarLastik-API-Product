@@ -19,6 +19,7 @@ export const productMap = pgTable("product_map", {
 	shopifyId: varchar("shopify_id", { length: 255 }),
 	inventoryItemId: varchar("inventory_item_id", { length: 255 }),
 	dataHash: varchar("data_hash", { length: 255 }),
+	rawData: json("raw_data"),
 	lastSyncAt: timestamp("last_sync_at"),
 	createdAt: timestamp("created_at").defaultNow(),
 	updatedAt: timestamp("updated_at").defaultNow(),

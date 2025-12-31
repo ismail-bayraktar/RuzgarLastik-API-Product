@@ -6,7 +6,7 @@
   - **Teknik Detay:** Drizzle şema güncellemesi ve migrasyon oluşturulması.
   - **Test:** Migrasyonun başarıyla çalışması ve dummy veri yazılabilmesi.
 
-- [ ] Task: SupplierService Refactoring - Fetch & Store
+- [x] Task: SupplierService Refactoring - Fetch & Store 9fd0253
   - **Açıklama:** `SupplierService` içinde `fetchFromApiAndStore()` metodunu yaz. Bu metod sadece veriyi çekip veritabanına "Raw" olarak kaydetmeli, işleme yapmamalı.
   - **Test:** Mock API veya gerçek API ile verilerin DB'ye "raw" olarak indiğinin teyidi.
 

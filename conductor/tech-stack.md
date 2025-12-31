@@ -1,19 +1,17 @@
-# Tech Stack - Rüzgar Lastik Sync
+# Tech Stack - Rüzgar Lastik Sync (Unified)
+
+## Architecture
+- **Unified Next.js:** Proje `apps/web` klasöründe birleştirilmiştir. Frontend ve API (Hono) tek bir port (3000) üzerinden çalışır.
+- **API Engine:** Hono, Next.js API Routes (`/api/*`) içine entegre edilmiştir.
+- **Side Project Approach:** Ana siteyi destekleyen, sadece panel odaklı hafif mikro-servis mimarisi.
 
 ## Core Technologies
-- **Runtime:** Bun - Hızlı çalışma zamanı ve paket yöneticisi.
-- **Frontend Framework:** Next.js (App Router) - Modern, SEO dostu ve performanslı React framework.
-- **Backend Framework:** Hono - Hafif ve yüksek performanslı sunucu çatısı.
-- **API Layer:** tRPC - Frontend ve backend arasında uçtan uca tip güvenliği.
-- **Styling:** TailwindCSS & shadcn/ui - Hızlı ve tutarlı arayüz geliştirme.
+- **Frontend/Backend:** Next.js 15+ (App Router)
+- **API:** Hono + tRPC
+- **Database:** PostgreSQL (Neon) & Drizzle ORM
+- **Auth:** Better-Auth (Dahili entegre)
+- **Runtime:** Bun
 
-## Data & Infrastructure
-- **Database:** PostgreSQL (Neon) - Sunucusuz ve ölçeklenebilir ilişkisel veritabanı.
-- **ORM:** Drizzle ORM - TypeScript öncelikli, hafif ve hızlı veritabanı erişim katmanı.
-- **Authentication:** Better-Auth - Modern ve güvenli kimlik doğrulama çözümü.
-- **Monorepo Management:** Turborepo - Optimize edilmiş monorepo yapılandırması.
-
-## Synchronization & Workflow
-- **Automation:** GitHub Actions - Cron job desteği ile periyodik senkronizasyon (her 4 saatte bir).
-- **Service Pattern:** Modüler servis mimarisi ile veri normalizasyonu, fiyatlandırma ve Shopify entegrasyonu yönetimi.
-- **Environment Management:** dotenv - Güvenli çevre değişkenleri yönetimi.
+## Environment
+- **Merkezi .env:** Root dizinindeki `.env` dosyası tek kaynaktır.
+- **Sync:** Ingest-First (Önce DB'ye indir, sonra işle).

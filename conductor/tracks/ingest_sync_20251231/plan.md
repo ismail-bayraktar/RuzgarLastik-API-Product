@@ -25,4 +25,10 @@
   - **Açıklama:** UI'da Sync işleminin "Veri İndiriliyor" ve "İşleniyor" aşamalarını ayrı ayrı veya birleşik bir progress bar ile göster.
   - **Test:** Sync başlatıldığında UI'ın doğru statüleri anlık yansıtması.
 
-- [ ] Task: Conductor - User Manual Verification 'Dashboard ve UI Entegrasyonu' (Protocol in workflow.md)
+## Phase 4: Mimari Sadeleştirme ve Stabilizasyon
+- [x] Task: Apps Birleştirme (Unified Next.js)
+  - **Açıklama:** Server ve Web uygulamaları apps/web altında birleştirildi.
+- [ ] Task: apps/server Klasörünü Sil
+  - **Açıklama:** Unified yapı doğrulandıktan sonra eski server klasörünü kaldır.
+- [ ] Task: Conductor - User Manual Verification 'Unified Architecture' (Protocol in workflow.md)
+

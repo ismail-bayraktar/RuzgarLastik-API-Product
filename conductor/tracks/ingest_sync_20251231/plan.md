@@ -17,7 +17,7 @@
     2. `process()`: DB'den (raw_data) oku -> Normalize Et -> Fiyatla -> Shopify'a Hazırla.
   - **Test:** `process()` fonksiyonunun internet bağlantısı olmadan da çalışabildiğinin doğrulanması.
 
-- [ ] Task: Ürün Normalizasyon ve Fiyatlandırma Adaptasyonu
+- [x] Task: Ürün Normalizasyon ve Fiyatlandırma Adaptasyonu 5fb4e1a
   - **Açıklama:** Mevcut `titleParser` ve `pricingService`'in, canlı API verisi yerine veritabanındaki `raw_data` kolonundan gelen veriyi kullanacak şekilde güncellenmesi.
 
 ## Phase 3: Dashboard ve UI Entegrasyonu

@@ -20,7 +20,7 @@
     - **Test:** `bun run scripts/process.ts` ile ham verilerin işlenip sütunlara ayrıştığını doğrula.
 
 ## Phase 3: Smart Synchronization (Sync Script)
-- [ ] Task: Implement Sync Script (`scripts/sync.ts`)
+- [x] Task: Implement Sync Script (`scripts/sync.ts`) 5ff905e
     - **Açıklama:** Sadece `valid` veya `needs_update` olanları Shopify'a gönder.
     - **Detay:**
         - Delta Check: `currentPrice != lastSyncedPrice` ise gönder.

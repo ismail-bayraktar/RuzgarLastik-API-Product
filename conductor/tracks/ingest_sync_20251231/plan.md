@@ -11,7 +11,7 @@
   - **Test:** Mock API veya gerçek API ile verilerin DB'ye "raw" olarak indiğinin teyidi.
 
 ## Phase 2: Ayrıştırılmış İşleme Hattı (Decoupled Pipeline)
-- [ ] Task: SyncOrchestrator - Akış Ayrımı
+- [x] Task: SyncOrchestrator - Akış Ayrımı c8f9714
   - **Açıklama:** Mevcut tek parça akışı ikiye böl.
     1. `ingest()`: Tedarikçiden DB'ye.
     2. `process()`: DB'den (raw_data) oku -> Normalize Et -> Fiyatla -> Shopify'a Hazırla.

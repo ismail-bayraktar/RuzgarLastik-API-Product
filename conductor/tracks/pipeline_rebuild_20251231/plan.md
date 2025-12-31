@@ -3,7 +3,7 @@
 ## Phase 1: Database & Script Foundation
 - [x] Task: Clean Slate - Reset Data 4a558a5
     - **Açıklama:** Veritabanındaki `supplier_products` verilerini temizle. Schema'yı koru, veriyi sıfırla.
-- [ ] Task: Implement Ingest Script (`scripts/ingest.ts`)
+- [x] Task: Implement Ingest Script (`scripts/ingest.ts`) 90f037f
     - **Açıklama:** `SupplierService`'i sadece veri çekip `raw_api_data`'ya yazacak şekilde güncelle/kullan.
     - **Detay:** Retry (3x) ve Rate Limit (2s delay) mantığı burada kesinlikle olmalı.
     - **Test:** Scripti çalıştırıp veritabanına ham JSON'ların indiğini doğrula.

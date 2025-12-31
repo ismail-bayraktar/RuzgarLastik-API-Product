@@ -21,7 +21,7 @@
   - **Açıklama:** Mevcut `titleParser` ve `pricingService`'in, canlı API verisi yerine veritabanındaki `raw_data` kolonundan gelen veriyi kullanacak şekilde güncellenmesi.
 
 ## Phase 3: Dashboard ve UI Entegrasyonu
-- [ ] Task: Dashboard Sync Durum Göstergeleri
+- [x] Task: Dashboard Sync Durum Göstergeleri 29d57b6
   - **Açıklama:** UI'da Sync işleminin "Veri İndiriliyor" ve "İşleniyor" aşamalarını ayrı ayrı veya birleşik bir progress bar ile göster.
   - **Test:** Sync başlatıldığında UI'ın doğru statüleri anlık yansıtması.
 

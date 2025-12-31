@@ -1,11 +1,10 @@
-import { db } from "@my-better-t-app/db";
+import { db, eq, sqlFn } from "@my-better-t-app/db";
 import { productsCache, cacheMetadata } from "@my-better-t-app/db/schema";
-import { eq, and, sql } from "drizzle-orm";
-import { SupplierService, SupplierProduct } from "./supplierService";
+import { SupplierService, type SupplierProduct } from "./supplierService";
 
 export class CacheService {
 	private supplierService: SupplierService;
-	private refreshIntervalHours = 24;
+	private refreshIntervalHours = 6;
 
 	constructor() {
 		const useMock = process.env.USE_MOCK_SUPPLIER === "true";
@@ -67,7 +66,7 @@ export class CacheService {
 
 	async getFromCache(category?: string, limit?: number): Promise<SupplierProduct[]> {
 		let query = db.select().from(productsCache);
-		
+
 		if (category) {
 			query = query.where(eq(productsCache.category, category)) as any;
 		}
@@ -78,19 +77,48 @@ export class CacheService {
 
 		const cached = await query;
 
-		return cached.map((p) => ({
-			supplierSku: p.supplierSku,
-			title: p.title,
-			brand: p.brand || "",
-			model: p.model || "",
-			category: p.category as "tire" | "rim" | "battery",
-			price: p.price / 100,
-			stock: p.stock,
-			barcode: p.barcode || undefined,
-			description: p.description || undefined,
-			images: (p.images as string[]) || [],
-			metafields: (p.metafields as Record<string, any>) || {},
-		}));
+		return cached.map((p) => {
+			const mf = (p.metafields as Record<string, any>) || {};
+
+			// Extract price: use column value if set, otherwise fallback to metafields.currentPrice
+			const priceFromColumn = p.price > 0 ? p.price / 100 : 0;
+			const priceFromMeta = typeof mf.currentPrice === "number" ? mf.currentPrice : 0;
+			const finalPrice = priceFromColumn > 0 ? priceFromColumn : priceFromMeta;
+
+			// Extract brand: use column value if set, otherwise fallback to metafields.brandTitle
+			const brandFromColumn = p.brand || "";
+			const brandFromMeta = (mf.brandTitle as string) || "";
+			const finalBrand = brandFromColumn || brandFromMeta;
+
+			// Extract stock: use column value if set, otherwise fallback to metafields.amount
+			const stockFromColumn = p.stock > 0 ? p.stock : 0;
+			const stockFromMeta = typeof mf.amount === "number" ? mf.amount : 0;
+			const finalStock = stockFromColumn > 0 ? stockFromColumn : stockFromMeta;
+
+			// Extract SKU: use column value, fallback to metafields.erpCode
+			const skuFromColumn = p.supplierSku;
+			const skuFromMeta = (mf.erpCode as string) || "";
+			const finalSku = skuFromColumn?.startsWith("unknown-") ? (skuFromMeta || skuFromColumn) : skuFromColumn;
+
+			// Extract images from metafields.image if column is empty
+			const imagesFromColumn = (p.images as string[]) || [];
+			const imageFromMeta = mf.image ? [mf.image] : [];
+			const finalImages = imagesFromColumn.length > 0 ? imagesFromColumn : imageFromMeta;
+
+			return {
+				supplierSku: finalSku,
+				title: p.title,
+				brand: finalBrand,
+				model: p.model || (mf.model as string) || "",
+				category: p.category as "tire" | "rim" | "battery",
+				price: finalPrice,
+				stock: finalStock,
+				barcode: p.barcode || undefined,
+				description: p.description || (mf.description as string) || undefined,
+				images: finalImages,
+				metafields: mf,
+			};
+		});
 	}
 
 	async refreshCache(category?: "tire" | "rim" | "battery"): Promise<SupplierProduct[]> {
@@ -165,16 +193,16 @@ export class CacheService {
 			).onConflictDoUpdate({
 				target: productsCache.supplierSku,
 				set: {
-					title: sql`excluded.title`,
-					brand: sql`excluded.brand`,
-					model: sql`excluded.model`,
-					price: sql`excluded.price`,
-					stock: sql`excluded.stock`,
-					barcode: sql`excluded.barcode`,
-					description: sql`excluded.description`,
-					images: sql`excluded.images`,
-					metafields: sql`excluded.metafields`,
-					updatedAt: sql`excluded.updated_at`,
+					title: sqlFn`excluded.title`,
+					brand: sqlFn`excluded.brand`,
+					model: sqlFn`excluded.model`,
+					price: sqlFn`excluded.price`,
+					stock: sqlFn`excluded.stock`,
+					barcode: sqlFn`excluded.barcode`,
+					description: sqlFn`excluded.description`,
+					images: sqlFn`excluded.images`,
+					metafields: sqlFn`excluded.metafields`,
+					updatedAt: sqlFn`excluded.updated_at`,
 				},
 			});
 		}
@@ -270,8 +298,8 @@ export class CacheService {
 			lastFetchAt: m.lastFetchAt,
 			productCount: m.productCount || 0,
 			status: m.status || "idle",
-			isStale: !m.lastFetchAt || 
-				(Date.now() - new Date(m.lastFetchAt).getTime()) / (1000 * 60 * 60) > (m.refreshIntervalHours || 24),
+			isStale: !m.lastFetchAt ||
+				(Date.now() - new Date(m.lastFetchAt).getTime()) / (1000 * 60 * 60) > (m.refreshIntervalHours || this.refreshIntervalHours),
 		}));
 
 		return {

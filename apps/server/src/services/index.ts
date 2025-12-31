@@ -4,3 +4,7 @@ export * from "./pricingRulesService";
 export * from "./shopifyService";
 export * from "./syncOrchestrator";
 export * from "./cacheService";
+export * from "./metafieldUtils";
+export * from "./rateLimiter";
+export * from "./retryUtils";
+export * from "./validationService";

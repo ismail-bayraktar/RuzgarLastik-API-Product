@@ -49,6 +49,31 @@ async function run() {
         }
     }
 
+    console.log("Ensuring missing columns in supplier_products...");
+    const missingColumns = [
+        { name: "validation_status", type: "varchar(20) DEFAULT 'raw' NOT NULL" },
+        { name: "generated_sku", type: "varchar(100)" },
+        { name: "missing_fields", type: "json DEFAULT '[]'::json" },
+        { name: "validation_errors", type: "json DEFAULT '[]'::json" },
+        { name: "shopify_product_id", type: "varchar(100)" },
+        { name: "shopify_variant_id", type: "varchar(100)" },
+        { name: "shopify_inventory_item_id", type: "varchar(100)" },
+        { name: "last_synced_price", type: "integer" },
+        { name: "last_synced_stock", type: "integer" },
+        { name: "last_synced_at", type: "timestamp" }
+    ];
+
+    for (const col of missingColumns) {
+        try {
+            await db.execute(sqlFn.raw(`ALTER TABLE "supplier_products" ADD COLUMN IF NOT EXISTS "${col.name}" ${col.type}`));
+            console.log(`  ✅ Column ${col.name} ensured`);
+        } catch (e: any) {
+             if (!e.message.includes("already exists")) {
+                console.error(`  ❌ Error adding ${col.name}:`, e.message);
+             }
+        }
+    }
+
     console.log("🚀 Database is ready!");
     process.exit(0);
 }

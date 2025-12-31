@@ -82,22 +82,51 @@ export interface UpdateInventoryInput {
   availableQuantity: number;
 }
 
+import {
+  ShopifyRateLimiter,
+  ESTIMATED_COSTS,
+  parseCostFromResponse,
+  getSharedRateLimiter,
+} from "./rateLimiter";
+import {
+  withRetry,
+  createShopifyRetryOptions,
+} from "./retryUtils";
+
+export interface ShopifyServiceConfig {
+  shopDomain: string;
+  accessToken: string;
+  apiVersion?: string;
+  locationId: string;
+  /** Enable rate limiting (default: true) */
+  enableRateLimiting?: boolean;
+  /** Enable automatic retry on transient errors (default: true) */
+  enableRetry?: boolean;
+  /** Enable debug logging (default: false) */
+  debug?: boolean;
+}
+
 export class ShopifyService {
   private shopDomain: string;
   private accessToken: string;
   private apiVersion: string;
   private locationId: string;
+  private rateLimiter: ShopifyRateLimiter;
+  private enableRateLimiting: boolean;
+  private enableRetry: boolean;
+  private debug: boolean;
 
-  constructor(config: {
-    shopDomain: string;
-    accessToken: string;
-    apiVersion?: string;
-    locationId: string;
-  }) {
+  constructor(config: ShopifyServiceConfig) {
     this.shopDomain = config.shopDomain;
     this.accessToken = config.accessToken;
     this.apiVersion = config.apiVersion || "2024-10";
     this.locationId = config.locationId;
+    this.enableRateLimiting = config.enableRateLimiting ?? true;
+    this.enableRetry = config.enableRetry ?? true;
+    this.debug = config.debug ?? false;
+
+    // Use shared rate limiter for all instances
+    this.rateLimiter = getSharedRateLimiter({ debug: this.debug });
 
     if (!this.shopDomain || !this.accessToken || !this.locationId) {
       throw new Error(
@@ -106,29 +135,66 @@ export class ShopifyService {
     }
   }
 
-  private async graphql<T = any>(query: string, variables?: Record<string, any>): Promise<T> {
+  private async graphql<T = any>(
+    query: string,
+    variables?: Record<string, any>,
+    estimatedCost?: number
+  ): Promise<T> {
     const url = `https://${this.shopDomain}/admin/api/${this.apiVersion}/graphql.json`;
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Shopify-Access-Token": this.accessToken,
-      },
-      body: JSON.stringify({ query, variables }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Shopify GraphQL error: ${response.status} ${response.statusText}`);
+    // Wait for rate limit capacity if enabled
+    if (this.enableRateLimiting && estimatedCost) {
+      await this.rateLimiter.waitForCapacity(estimatedCost);
     }
 
-    const json = await response.json();
+    const executeRequest = async () => {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": this.accessToken,
+        },
+        body: JSON.stringify({ query, variables }),
+      });
 
-    if (json.errors) {
-      throw new Error(`Shopify GraphQL errors: ${JSON.stringify(json.errors)}`);
+      if (!response.ok) {
+        throw new Error(`Shopify GraphQL error: ${response.status} ${response.statusText}`);
+      }
+
+      const json = (await response.json()) as {
+        data?: T;
+        errors?: Array<{ message: string }>;
+        extensions?: { cost: unknown };
+      };
+
+      // Update rate limiter with actual cost from response
+      if (this.enableRateLimiting) {
+        const costInfo = parseCostFromResponse(json);
+        if (costInfo) {
+          this.rateLimiter.updateFromResponse(costInfo);
+        }
+      }
+
+      if (json.errors) {
+        throw new Error(`Shopify GraphQL errors: ${JSON.stringify(json.errors)}`);
+      }
+
+      return json.data as T;
+    };
+
+    // Apply retry logic if enabled
+    if (this.enableRetry) {
+      return withRetry(executeRequest, createShopifyRetryOptions(this.debug));
     }
 
-    return json.data;
+    return executeRequest();
+  }
+
+  /**
+   * Get current rate limiter status
+   */
+  getRateLimiterStatus() {
+    return this.rateLimiter.getStatus();
   }
 
   async getProductBySku(sku: string): Promise<ShopifyProduct | null> {
@@ -184,7 +250,7 @@ export class ShopifyService {
       }
     `;
 
-    const data = await this.graphql<any>(query, { query: `sku:${sku}` });
+    const data = await this.graphql<any>(query, { query: `sku:${sku}` }, ESTIMATED_COSTS.getProductBySku);
 
     if (!data.products.edges.length) {
       return null;
@@ -207,14 +273,15 @@ export class ShopifyService {
   }
 
   async createProduct(input: CreateProductInput): Promise<ShopifyProduct> {
-    const mutation = `
-      mutation createProduct($input: ProductInput!) {
-        productCreate(input: $input) {
+    // Step 1: Create product with basic info (no variants/images in ProductCreateInput for 2024+ API)
+    const createMutation = `
+      mutation createProduct($product: ProductCreateInput!, $media: [CreateMediaInput!]) {
+        productCreate(product: $product, media: $media) {
           product {
             id
             title
             status
-            variants(first: 10) {
+            variants(first: 1) {
               edges {
                 node {
                   id
@@ -235,15 +302,145 @@ export class ShopifyService {
       }
     `;
 
-    const data = await this.graphql<any>(mutation, { input });
+    // Build ProductCreateInput (2024+ format - no variants/images here)
+    const productInput: Record<string, unknown> = {
+      title: input.title,
+      descriptionHtml: input.descriptionHtml || "",
+      vendor: input.vendor || "",
+      productType: input.productType || "",
+      status: input.status || "ACTIVE",
+    };
 
-    if (data.productCreate.userErrors.length > 0) {
+    // Handle tags if present
+    if (input.tags && input.tags.length > 0) {
+      productInput.tags = input.tags;
+    }
+
+    // Build media input for images (separate parameter in 2024+ API)
+    let mediaInput: Array<{ originalSource: string; alt: string; mediaContentType: string }> | undefined;
+    if (input.images && input.images.length > 0) {
+      mediaInput = input.images
+        .filter(img => img.src && img.src.trim() !== "")
+        .map(img => ({
+          originalSource: img.src,
+          alt: img.altText || input.title,
+          mediaContentType: "IMAGE",
+        }));
+    }
+
+    const createData = await this.graphql<any>(
+      createMutation,
+      {
+        product: productInput,
+        media: mediaInput && mediaInput.length > 0 ? mediaInput : undefined
+      },
+      ESTIMATED_COSTS.createProduct
+    );
+
+    if (createData.productCreate.userErrors.length > 0) {
       throw new Error(
-        `Shopify product creation errors: ${JSON.stringify(data.productCreate.userErrors)}`
+        `Shopify product creation errors: ${JSON.stringify(createData.productCreate.userErrors)}`
       );
     }
 
-    return data.productCreate.product;
+    const createdProduct = createData.productCreate.product;
+    const defaultVariant = createdProduct.variants?.edges?.[0]?.node;
+
+    // Step 2: Update the default variant with price, barcode using productVariantsBulkUpdate (2024+ API)
+    const variantData = input.variants?.[0];
+    if (defaultVariant && variantData) {
+      const bulkUpdateMutation = `
+        mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+          productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+            product {
+              id
+            }
+            productVariants {
+              id
+              price
+              barcode
+              inventoryItem {
+                id
+                sku
+              }
+            }
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+      `;
+
+      const variantInput: Record<string, unknown> = {
+        id: defaultVariant.id,
+        price: variantData.price,
+      };
+
+      // Only set barcode if provided and not empty
+      if (variantData.barcode && variantData.barcode.trim() !== "") {
+        variantInput.barcode = variantData.barcode;
+      }
+
+      const bulkUpdateData = await this.graphql<any>(
+        bulkUpdateMutation,
+        {
+          productId: createdProduct.id,
+          variants: [variantInput]
+        },
+        ESTIMATED_COSTS.updateVariant
+      );
+
+      if (bulkUpdateData.productVariantsBulkUpdate.userErrors.length > 0) {
+        console.warn(
+          `Variant bulk update warnings: ${JSON.stringify(bulkUpdateData.productVariantsBulkUpdate.userErrors)}`
+        );
+      }
+
+      const updatedVariant = bulkUpdateData.productVariantsBulkUpdate.productVariants?.[0];
+
+      // Step 3: Update SKU via inventoryItemUpdate if SKU is provided
+      if (variantData.sku && variantData.sku.trim() !== "" && updatedVariant?.inventoryItem?.id) {
+        const inventoryUpdateMutation = `
+          mutation inventoryItemUpdate($id: ID!, $input: InventoryItemInput!) {
+            inventoryItemUpdate(id: $id, input: $input) {
+              inventoryItem {
+                id
+                sku
+              }
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `;
+
+        const inventoryUpdateData = await this.graphql<any>(
+          inventoryUpdateMutation,
+          {
+            id: updatedVariant.inventoryItem.id,
+            input: { sku: variantData.sku }
+          },
+          5 // Low cost operation
+        );
+
+        if (inventoryUpdateData.inventoryItemUpdate.userErrors.length > 0) {
+          console.warn(
+            `SKU update warnings: ${JSON.stringify(inventoryUpdateData.inventoryItemUpdate.userErrors)}`
+          );
+        }
+      }
+
+      // Update the product object with the updated variant
+      if (updatedVariant) {
+        createdProduct.variants = {
+          edges: [{ node: updatedVariant }]
+        };
+      }
+    }
+
+    return createdProduct;
   }
 
   async updateProduct(input: UpdateProductInput): Promise<ShopifyProduct> {
@@ -263,7 +460,7 @@ export class ShopifyService {
       }
     `;
 
-    const data = await this.graphql<any>(mutation, { input });
+    const data = await this.graphql<any>(mutation, { input }, ESTIMATED_COSTS.updateProduct);
 
     if (data.productUpdate.userErrors.length > 0) {
       throw new Error(
@@ -292,7 +489,7 @@ export class ShopifyService {
       }
     `;
 
-    const data = await this.graphql<any>(mutation, { input });
+    const data = await this.graphql<any>(mutation, { input }, ESTIMATED_COSTS.updateVariant);
 
     if (data.productVariantUpdate.userErrors.length > 0) {
       throw new Error(
@@ -329,7 +526,7 @@ export class ShopifyService {
       ],
     };
 
-    const data = await this.graphql<any>(mutation, { input: adjustmentInput });
+    const data = await this.graphql<any>(mutation, { input: adjustmentInput }, ESTIMATED_COSTS.updateInventory);
 
     if (data.inventorySetOnHandQuantities.userErrors.length > 0) {
       throw new Error(
@@ -344,6 +541,9 @@ export class ShopifyService {
     ownerId: string,
     metafields: Array<{ namespace: string; key: string; value: string; type: string }>
   ): Promise<void> {
+    // Import dynamically to avoid circular dependencies
+    const { prepareMetafieldsForShopify } = await import("./metafieldUtils");
+
     const mutation = `
       mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
         metafieldsSet(metafields: $metafields) {
@@ -361,7 +561,20 @@ export class ShopifyService {
       }
     `;
 
-    const metafieldsInput = metafields.map((mf) => ({
+    // Convert to raw format and use prepareMetafieldsForShopify for validation
+    const rawMetafields: Record<string, unknown> = {};
+    for (const mf of metafields) {
+      rawMetafields[mf.key] = mf.value;
+    }
+
+    const validatedMetafields = prepareMetafieldsForShopify(rawMetafields, metafields[0]?.namespace || "custom");
+
+    if (validatedMetafields.length === 0) {
+      console.warn("No valid metafields to set after validation");
+      return;
+    }
+
+    const metafieldsInput = validatedMetafields.map((mf) => ({
       ownerId,
       namespace: mf.namespace,
       key: mf.key,
@@ -369,7 +582,7 @@ export class ShopifyService {
       type: mf.type,
     }));
 
-    const data = await this.graphql<any>(mutation, { metafields: metafieldsInput });
+    const data = await this.graphql<any>(mutation, { metafields: metafieldsInput }, ESTIMATED_COSTS.setMetafields);
 
     if (data.metafieldsSet.userErrors.length > 0) {
       throw new Error(
@@ -378,33 +591,14 @@ export class ShopifyService {
     }
   }
 
+  /**
+   * @deprecated Use getRateLimiterStatus() instead for cost tracking
+   */
   async calculateGraphQLCost(): Promise<{ requestedQueryCost: number; actualQueryCost: number }> {
-    const query = `
-      query {
-        shop {
-          name
-        }
-      }
-    `;
-
-    const response = await fetch(
-      `https://${this.shopDomain}/admin/api/${this.apiVersion}/graphql.json`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Shopify-Access-Token": this.accessToken,
-        },
-        body: JSON.stringify({ query }),
-      }
-    );
-
-    const json = await response.json();
-    const extensions = json.extensions?.cost;
-
+    const status = this.rateLimiter.getStatus();
     return {
-      requestedQueryCost: extensions?.requestedQueryCost || 0,
-      actualQueryCost: extensions?.actualQueryCost || 0,
+      requestedQueryCost: status.currentCost,
+      actualQueryCost: status.currentCost,
     };
   }
 }

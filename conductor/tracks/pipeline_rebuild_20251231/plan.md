@@ -28,6 +28,6 @@
     - **Test:** Dry Run modunda çalıştırıp doğru ürünleri seçtiğini doğrula.
 
 ## Phase 4: Automation & UI Hook
-- [ ] Task: Unified Pipeline Script (`scripts/pipeline.ts`)
+- [x] Task: Unified Pipeline Script (`scripts/pipeline.ts`) 3012303
     - **Açıklama:** `Ingest -> Process -> Sync` adımlarını sırayla çalıştıran ana script.
 - [ ] Task: Conductor - User Manual Verification 'Systematic Pipeline Rebuild' (Protocol in workflow.md)

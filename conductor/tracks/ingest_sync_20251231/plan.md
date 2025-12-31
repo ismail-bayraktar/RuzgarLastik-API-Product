@@ -1,7 +1,7 @@
 # Track Plan: Tedarikçi Veri Havuzu ve Ayrıştırılmış Sync Hattı
 
 ## Phase 1: Veritabanı ve Ingestion Altyapısı
-- [~] Task: DB Şema Güncellemesi - Raw Data Desteği
+- [x] Task: DB Şema Güncellemesi - Raw Data Desteği de15736
   - **Açıklama:** `productMap` veya yeni bir tablo üzerinde tedarikçiden gelen ham JSON verisini saklayacak `raw_data` alanını oluştur.
   - **Teknik Detay:** Drizzle şema güncellemesi ve migrasyon oluşturulması.
   - **Test:** Migrasyonun başarıyla çalışması ve dummy veri yazılabilmesi.

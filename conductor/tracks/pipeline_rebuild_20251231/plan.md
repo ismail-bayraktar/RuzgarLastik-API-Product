@@ -9,7 +9,7 @@
     - **Test:** Scripti çalıştırıp veritabanına ham JSON'ların indiğini doğrula.
 
 ## Phase 2: Logic Decoupling (Process Script)
-- [ ] Task: Port Logic to Process Script (`scripts/process.ts`)
+- [x] Task: Port Logic to Process Script (`scripts/process.ts`) f46d18c
     - **Açıklama:** Mevcut `TitleParserService` ve `PricingRulesService` mantığını kullanarak veriyi işleyen bağımsız bir script yaz.
     - **Akış:**
         1. DB'den `validationStatus = 'raw'` olanları çek.

@@ -50,28 +50,22 @@ async function run() {
     }
 
     console.log("Ensuring missing columns in supplier_products...");
-    const missingColumns = [
-        { name: "validation_status", type: "varchar(20) DEFAULT 'raw' NOT NULL" },
-        { name: "generated_sku", type: "varchar(100)" },
-        { name: "missing_fields", type: "json DEFAULT '[]'::json" },
-        { name: "validation_errors", type: "json DEFAULT '[]'::json" },
-        { name: "shopify_product_id", type: "varchar(100)" },
-        { name: "shopify_variant_id", type: "varchar(100)" },
-        { name: "shopify_inventory_item_id", type: "varchar(100)" },
-        { name: "last_synced_price", type: "integer" },
-        { name: "last_synced_stock", type: "integer" },
-        { name: "last_synced_at", type: "timestamp" }
-    ];
+    // ... (existing missingColumns code)
 
-    for (const col of missingColumns) {
-        try {
-            await db.execute(sqlFn.raw(`ALTER TABLE "supplier_products" ADD COLUMN IF NOT EXISTS "${col.name}" ${col.type}`));
-            console.log(`  ✅ Column ${col.name} ensured`);
-        } catch (e: any) {
-             if (!e.message.includes("already exists")) {
-                console.error(`  ❌ Error adding ${col.name}:`, e.message);
-             }
-        }
+    console.log("Ensuring validation_settings table...");
+    try {
+        await db.execute(sqlFn.raw(`
+            CREATE TABLE IF NOT EXISTS "validation_settings" (
+                "id" serial PRIMARY KEY NOT NULL,
+                "key" varchar(100) NOT NULL UNIQUE,
+                "value" json NOT NULL,
+                "description" varchar(500),
+                "updated_at" timestamp DEFAULT now()
+            )
+        `));
+        console.log("✅ validation_settings table ensured");
+    } catch (e: any) {
+        console.error("❌ Error ensuring validation_settings table:", e.message);
     }
 
     console.log("🚀 Database is ready!");

@@ -354,11 +354,13 @@ export class ShopifyService {
     }
 
     const createdProduct = createData.productCreate.product;
-    const defaultVariant = createdProduct.variants?.edges?.[0]?.node;
+    let finalVariants: ShopifyVariant[] = createdProduct.variants?.edges?.map((e: any) => e.node) || [];
 
     // Step 2: Update the default variant with price, barcode using productVariantsBulkUpdate (2024+ API)
     const variantData = input.variants?.[0];
-    if (defaultVariant && variantData) {
+    const defaultVariantId = createdProduct.variants?.edges?.[0]?.node?.id;
+
+    if (defaultVariantId && variantData) {
       const bulkUpdateMutation = `
         mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
           productVariantsBulkUpdate(productId: $productId, variants: $variants) {
@@ -383,7 +385,7 @@ export class ShopifyService {
       `;
 
       const variantInput: Record<string, unknown> = {
-        id: defaultVariant.id,
+        id: defaultVariantId,
         price: variantData.price,
       };
 
@@ -442,15 +444,19 @@ export class ShopifyService {
         }
       }
 
-      // Update the product object with the updated variant
+      // Update our local finalVariants array if we have an updated variant
       if (updatedVariant) {
-        createdProduct.variants = {
-          edges: [{ node: updatedVariant }]
-        };
+        finalVariants = [updatedVariant];
       }
     }
 
-    return createdProduct;
+    return {
+      id: createdProduct.id,
+      title: createdProduct.title,
+      status: createdProduct.status,
+      variants: finalVariants,
+      images: [] // images are handled separately in media mutation if needed, or mapped from createdProduct
+    };
   }
 
   async updateProduct(input: UpdateProductInput): Promise<ShopifyProduct> {

@@ -108,7 +108,7 @@ async function runSync() {
           });
 
           shopifyProductId = created.id;
-          const variant = created.variants?.edges?.[0]?.node;
+          const variant = created.variants?.[0];
           shopifyVariantId = variant?.id || null;
           shopifyInventoryItemId = variant?.inventoryItem?.id || null;
 

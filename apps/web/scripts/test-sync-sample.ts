@@ -117,8 +117,8 @@ async function runTestSync() {
       await db.update(supplierProducts)
         .set({
           shopifyProductId: created.id,
-          shopifyVariantId: created.variants?.edges?.[0]?.node?.id,
-          shopifyInventoryItemId: created.variants?.edges?.[0]?.node?.inventoryItem?.id,
+          shopifyVariantId: created.variants?.[0]?.id,
+          shopifyInventoryItemId: created.variants?.[0]?.inventoryItem?.id,
           lastSyncedPrice: product.currentPrice,
           lastSyncedStock: product.currentStock,
           lastSyncedAt: new Date(),
@@ -128,7 +128,7 @@ async function runTestSync() {
         .where(eq(supplierProducts.id, product.id));
 
       // Finalize inventory
-      const inventoryItemId = created.variants?.edges?.[0]?.node?.inventoryItem?.id;
+      const inventoryItemId = created.variants?.[0]?.inventoryItem?.id;
       if (inventoryItemId) {
         console.log(`   📦 Updating inventory to ${stock}...`);
         await shopifyService.updateInventory({

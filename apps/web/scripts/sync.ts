@@ -50,99 +50,105 @@ async function runSync() {
   let successCount = 0;
   let errorCount = 0;
 
-  for (const product of allProducts) {
-    try {
-      console.log(`
-🔄 Syncing ${product.supplierSku}: ${product.title}`);
-      
-      const price = (product.currentPrice || 0) / 100;
-      const stock = product.currentStock || 0;
+  const chunkSize = 10;
+  for (let i = 0; i < allProducts.length; i += chunkSize) {
+    const chunk = allProducts.slice(i, i + chunkSize);
+    console.log(`Processing chunk ${Math.floor(i / chunkSize) + 1}/${Math.ceil(allProducts.length / chunkSize)} (${chunk.length} products)...`);
 
-      if (dryRun) {
-        console.log(`  [DRY RUN] Would sync Price: ${price}, Stock: ${stock}`);
-        successCount++;
-        continue;
-      }
-
-      let shopifyProductId = product.shopifyProductId;
-      let shopifyVariantId = product.shopifyVariantId;
-      let shopifyInventoryItemId = product.shopifyInventoryItemId;
-
-      if (shopifyProductId) {
-        // UPDATE
-        console.log(`  Updating existing product ${shopifyProductId}...`);
+    const promises = chunk.map(async (product) => {
+      try {
+        // console.log(`Syncing ${product.supplierSku}: ${product.title}`); // Reduce noise
         
-        // Update price via variant
-        if (shopifyVariantId) {
-          await shopifyService.updateVariant({
-            id: shopifyVariantId,
-            price: price.toString()
-          });
+        const price = (product.currentPrice || 0) / 100;
+        const stock = product.currentStock || 0;
+
+        if (dryRun) {
+          // console.log(`  [DRY RUN] Would sync Price: ${price}, Stock: ${stock}`);
+          successCount++;
+          return;
         }
 
-        // Update inventory
-        if (shopifyInventoryItemId) {
-          await shopifyService.updateInventory({
-            inventoryItemId: shopifyInventoryItemId,
-            locationId,
-            availableQuantity: stock
-          });
-        }
-      } else {
-        // CREATE
-        console.log(`  Creating new product in Shopify...`);
-        const created = await shopifyService.createProduct({
-          title: product.title,
-          vendor: product.brand || "",
-          productType: product.category,
-          status: "ACTIVE",
-          variants: [{ 
-            sku: product.generatedSku || product.supplierSku,
-            price: price.toString()
-          }],
-          images: product.images?.map((src: string) => ({ src })) || []
-        });
+        let shopifyProductId = product.shopifyProductId;
+        let shopifyVariantId = product.shopifyVariantId;
+        let shopifyInventoryItemId = product.shopifyInventoryItemId;
 
-        shopifyProductId = created.id;
-        const variant = created.variants?.edges?.[0]?.node;
-        shopifyVariantId = variant?.id || null;
-        shopifyInventoryItemId = variant?.inventoryItem?.id || null;
+        if (shopifyProductId) {
+          // UPDATE
+          // console.log(`  Updating existing product ${shopifyProductId}...`);
+          
+          // Update price via variant
+          if (shopifyVariantId) {
+            await shopifyService.updateVariant({
+              id: shopifyVariantId,
+              price: price.toString()
+            });
+          }
 
-        // Finalize inventory for new product
-        if (shopifyInventoryItemId) {
-          await shopifyService.updateInventory({
-            inventoryItemId: shopifyInventoryItemId,
-            locationId,
-            availableQuantity: stock
+          // Update inventory
+          if (shopifyInventoryItemId) {
+            await shopifyService.updateInventory({
+              inventoryItemId: shopifyInventoryItemId,
+              locationId,
+              availableQuantity: stock
+            });
+          }
+        } else {
+          // CREATE
+          // console.log(`  Creating new product in Shopify...`);
+          const created = await shopifyService.createProduct({
+            title: product.title,
+            vendor: product.brand || "",
+            productType: product.category,
+            status: "ACTIVE",
+            variants: [{ 
+              sku: product.generatedSku || product.supplierSku,
+              price: price.toString()
+            }],
+            images: product.images?.map((src: string) => ({ src })) || []
           });
+
+          shopifyProductId = created.id;
+          const variant = created.variants?.edges?.[0]?.node;
+          shopifyVariantId = variant?.id || null;
+          shopifyInventoryItemId = variant?.inventoryItem?.id || null;
+
+          // Finalize inventory for new product
+          if (shopifyInventoryItemId) {
+            await shopifyService.updateInventory({
+              inventoryItemId: shopifyInventoryItemId,
+              locationId,
+              availableQuantity: stock
+            });
+          }
         }
+
+        // Update DB
+        await db.update(supplierProducts)
+          .set({
+            shopifyProductId,
+            shopifyVariantId,
+            shopifyInventoryItemId,
+            lastSyncedPrice: product.currentPrice,
+            lastSyncedStock: product.currentStock,
+            lastSyncedAt: new Date(),
+            validationStatus: "published",
+            updatedAt: new Date()
+          })
+          .where(eq(supplierProducts.id, product.id));
+
+        successCount++;
+        // console.log(`  ✅ Successfully synced ${product.supplierSku}`);
+
+      } catch (err) {
+        console.error(`  ❌ Failed to sync ${product.supplierSku}:`, err);
+        errorCount++;
       }
+    });
 
-      // Update DB
-      await db.update(supplierProducts)
-        .set({
-          shopifyProductId,
-          shopifyVariantId,
-          shopifyInventoryItemId,
-          lastSyncedPrice: product.currentPrice,
-          lastSyncedStock: product.currentStock,
-          lastSyncedAt: new Date(),
-          validationStatus: "published",
-          updatedAt: new Date()
-        })
-        .where(eq(supplierProducts.id, product.id));
-
-      successCount++;
-      console.log(`  ✅ Successfully synced ${product.supplierSku}`);
-
-    } catch (err) {
-      console.error(`  ❌ Failed to sync ${product.supplierSku}:`, err);
-      errorCount++;
-    }
+    await Promise.all(promises);
   }
 
-  console.log(`
-✅ Synchronization complete!`);
+  console.log(`\n✅ Synchronization complete!`);
   console.log(`   Success: ${successCount}`);
   console.log(`   Errors: ${errorCount}`);
   process.exit(0);

@@ -25,79 +25,81 @@ async function runProcess() {
   let successCount = 0;
   let errorCount = 0;
 
-  for (const product of rawProducts) {
-    try {
-      const category = product.category as "tire" | "rim" | "battery";
-      const title = product.title;
-      
-      // A. Parse Title
-      const parseResult = titleParser.parseDetailed(category, title);
-      
-      // B. Calculate Price
-      const pricing = await pricingService.applyPricing(
-        (product.currentPrice || 0) / 100,
-        category,
-        product.brand || undefined
-      );
+  const chunkSize = 50;
+  for (let i = 0; i < rawProducts.length; i += chunkSize) {
+    const chunk = rawProducts.slice(i, i + chunkSize);
+    console.log(`Processing chunk ${Math.floor(i / chunkSize) + 1}/${Math.ceil(rawProducts.length / chunkSize)} (${chunk.length} products)...`);
 
-      // C. Generate Smart SKU
-      let generatedSku = product.supplierSku;
-      if (parseResult.success && parseResult.data) {
-        const brandStr = (product.brand || "UNK").toUpperCase().replace(/\s+/g, "");
-        if (category === "tire") {
-          const d = parseResult.data as any;
-          generatedSku = `${brandStr}-${d.width}${d.aspectRatio}${d.rimDiameter}-${product.id}`;
-        } else if (category === "rim") {
-          const d = parseResult.data as any;
-          generatedSku = `${brandStr}-${d.width}X${d.diameter}-${product.id}`;
-        }
-      }
+    const promises = chunk.map(async (product) => {
+      try {
+        const category = product.category as "tire" | "rim" | "battery";
+        const title = product.title;
+        
+        // A. Parse Title
+        const parseResult = titleParser.parseDetailed(category, title);
+        
+        // B. Calculate Price
+        const pricing = await pricingService.applyPricing(
+          (product.currentPrice || 0) / 100,
+          category,
+          product.brand || undefined
+        );
 
-      // D. Validation Logic
-      const errors: Array<{field: string, message: string}> = [];
-      const missingFields: string[] = [];
-
-      if (!parseResult.success) {
-        errors.push({ field: "title", message: "Ebat bilgileri ayrıştırılamadı." });
-        parseResult.fields.filter(f => !f.success).forEach(f => {
-          missingFields.push(f.field);
-        });
-      }
-
-      if (product.currentPrice <= 0) {
-        errors.push({ field: "price", message: "Fiyat 0 veya negatif olamaz." });
-      }
-
-      if (product.currentStock <= 0) {
-        // We don't mark as invalid for 0 stock, just published with 0 stock
-        // but for now let's keep it simple.
-      }
-
-      const status = errors.length === 0 ? "valid" : "invalid";
-
-      // E. Update Record
-      await db.update(supplierProducts)
-        .set({
-          generatedSku,
-          validationStatus: status,
-          validationErrors: errors,
-          missingFields: missingFields,
-          updatedAt: new Date(),
-          // We could also enrich metafields here
-          metafields: {
-            ...(product.metafields as object || {}),
-            parsed: parseResult.data,
-            pricing: pricing
+        // C. Generate Smart SKU
+        let generatedSku = product.supplierSku;
+        if (parseResult.success && parseResult.data) {
+          const brandStr = (product.brand || "UNK").toUpperCase().replace(/\s+/g, "");
+          if (category === "tire") {
+            const d = parseResult.data as any;
+            generatedSku = `${brandStr}-${d.width}${d.aspectRatio}${d.rimDiameter}-${product.id}`;
+          } else if (category === "rim") {
+            const d = parseResult.data as any;
+            generatedSku = `${brandStr}-${d.width}X${d.diameter}-${product.id}`;
           }
-        })
-        .where(eq(supplierProducts.id, product.id));
+        }
 
-      if (status === "valid") successCount++; else errorCount++;
+        // D. Validation Logic
+        const errors: Array<{field: string, message: string}> = [];
+        const missingFields: string[] = [];
 
-    } catch (err) {
-      console.error(`Failed to process product ${product.supplierSku}:`, err);
-      errorCount++;
-    }
+        if (!parseResult.success) {
+          errors.push({ field: "title", message: "Ebat bilgileri ayrıştırılamadı." });
+          parseResult.fields.filter(f => !f.success).forEach(f => {
+            missingFields.push(f.field);
+          });
+        }
+
+        if (product.currentPrice <= 0) {
+          errors.push({ field: "price", message: "Fiyat 0 veya negatif olamaz." });
+        }
+
+        const status = errors.length === 0 ? "valid" : "invalid";
+
+        // E. Update Record
+        await db.update(supplierProducts)
+          .set({
+            generatedSku,
+            validationStatus: status,
+            validationErrors: errors,
+            missingFields: missingFields,
+            updatedAt: new Date(),
+            metafields: {
+              ...(product.metafields as object || {}),
+              parsed: parseResult.data,
+              pricing: pricing
+            }
+          })
+          .where(eq(supplierProducts.id, product.id));
+
+        if (status === "valid") successCount++; else errorCount++;
+
+      } catch (err) {
+        console.error(`Failed to process product ${product.supplierSku}:`, err);
+        errorCount++;
+      }
+    });
+
+    await Promise.all(promises);
   }
 
   console.log(`\n✅ Processing complete!`);

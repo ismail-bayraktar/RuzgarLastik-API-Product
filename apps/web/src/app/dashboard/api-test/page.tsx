@@ -240,7 +240,7 @@ export default function ApiTestPage() {
 										</div>
 									)}
 
-									{result.data && (
+									{!!result.data && (
 										<div className="relative">
 											<div className="flex items-center justify-between mb-2">
 												<span className="text-sm text-muted-foreground">Ornek urun verisi (ilk 2 urun)</span>

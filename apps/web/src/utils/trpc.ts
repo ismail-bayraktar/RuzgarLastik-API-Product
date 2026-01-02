@@ -7,20 +7,22 @@ import { toast } from "sonner";
 export const queryClient = new QueryClient({
 	queryCache: new QueryCache({
 		onError: (error, query) => {
-			toast.error(error.message, {
-				action: {
-					label: "retry",
-					onClick: query.invalidate,
-				},
-			});
+			console.error("[tRPC Error]", error);
+			// toast.error(error.message);
 		},
 	}),
 });
 
+function getBaseUrl() {
+  if (typeof window !== "undefined") return ""; // Browser'da relative path kullan
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return `http://localhost:${process.env.PORT || 3000}`;
+}
+
 const trpcClient = createTRPCClient<AppRouter>({
 	links: [
 		httpBatchLink({
-			url: `${process.env.NEXT_PUBLIC_SERVER_URL}/trpc`,
+			url: `${getBaseUrl()}/api/trpc`,
 			fetch(url, options) {
 				return fetch(url, {
 					...options,

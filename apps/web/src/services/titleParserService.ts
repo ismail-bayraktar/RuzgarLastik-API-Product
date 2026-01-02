@@ -62,6 +62,8 @@ export class TitleParserService {
     /(\d+)\s*Ah\s*(\d+)\s*A/i,
     // 60AH/540A format
     /(\d+)\s*AH?\/(\d+)\s*A/i,
+    // Just 60 AH format (new)
+    /(\d+)\s*AH/i,
   ];
 
   // Season keywords
@@ -726,11 +728,11 @@ export class TitleParserService {
 
     // Build result - at least capacity should be found for success
     const capacityField = fields.find(f => f.field === "capacity");
-    const success = capacityField?.success ?? false;
+    const success = !!(capacityField && capacityField.value && capacityField.success);
 
     const data: BatteryParseResult | null = success
       ? {
-          capacity: fields.find(f => f.field === "capacity")?.value ?? undefined,
+          capacity: capacityField!.value,
           cca: fields.find(f => f.field === "cca")?.value ?? undefined,
           voltage: fields.find(f => f.field === "voltage")?.value ?? undefined,
         }

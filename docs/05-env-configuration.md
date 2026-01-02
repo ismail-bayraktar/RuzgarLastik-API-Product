@@ -698,4 +698,15 @@ git push origin main
 ✅ **Validation** scripts ready  
 ✅ **Deployment** configuration clear  
 
-🚀 **Ready to code!** İsmail Hocam, şimdi hep 5 dokümana bakarak vibe coding'e başlayabilirsin!
+---
+
+## İlgili Dökümanlar
+
+| Döküman | İçerik |
+|---------|--------|
+| `06-environment-setup.md` | **Adım adım kurulum rehberi** - Neon, Shopify, Better Auth |
+| `07-troubleshooting.md` | **Hata çözümleri** - Yaşanan sorunlar ve çözümleri |
+
+---
+
+🚀 **Ready to code!** Environment sorunları için `07-troubleshooting.md` dosyasına bakın.

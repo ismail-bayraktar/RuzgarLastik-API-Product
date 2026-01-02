@@ -1,0 +1,101 @@
+name: Scheduled Validate & Sync
+
+on:
+  # Run daily at 01:00 UTC (04:00 Turkey time)
+  schedule:
+    - cron: '0 1 * * *'
+
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      categories:
+        description: 'Categories to sync (comma-separated: tire,rim,battery)'
+        required: false
+        default: 'tire,rim,battery'
+      dry_run:
+        description: 'Dry run (no actual changes)'
+        required: false
+        default: false
+        type: boolean
+      skip_fetch:
+        description: 'Skip fetching from supplier API'
+        required: false
+        default: false
+        type: boolean
+      limit:
+        description: 'Limit number of products to sync'
+        required: false
+        type: number
+
+env:
+  SHOPIFY_SHOP_DOMAIN: ${{ secrets.SHOPIFY_SHOP_DOMAIN }}
+  SHOPIFY_ACCESS_TOKEN: ${{ secrets.SHOPIFY_ACCESS_TOKEN }}
+  SHOPIFY_LOCATION_ID: ${{ secrets.SHOPIFY_LOCATION_ID }}
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  SUPPLIER_API_LASTIK: ${{ secrets.SUPPLIER_API_LASTIK }}
+  SUPPLIER_API_JANT: ${{ secrets.SUPPLIER_API_JANT }}
+  SUPPLIER_API_AKU: ${{ secrets.SUPPLIER_API_AKU }}
+
+jobs:
+  validate-and-sync:
+    name: Validate & Sync Products
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run validate and sync
+        run: |
+          cd apps/web
+
+          CATEGORIES="${{ github.event.inputs.categories || 'tire,rim,battery' }}"
+          DRY_RUN="${{ github.event.inputs.dry_run || 'false' }}"
+          SKIP_FETCH="${{ github.event.inputs.skip_fetch || 'false' }}"
+          LIMIT="${{ github.event.inputs.limit || '' }}"
+
+          echo "============================================"
+          echo "Ruzgar Lastik Validate & Sync"
+          echo "============================================"
+          echo "Categories: $CATEGORIES"
+          echo "Dry Run: $DRY_RUN"
+          echo "Skip Fetch: $SKIP_FETCH"
+          echo "Limit: ${LIMIT:-'no limit'}"
+          echo "============================================"
+
+          # Build command
+          CMD="bun run src/scripts/validate-and-sync.ts --categories $CATEGORIES --dry-run $DRY_RUN --skip-fetch $SKIP_FETCH"
+
+          if [ -n "$LIMIT" ]; then
+            CMD="$CMD --limit $LIMIT"
+          fi
+
+          echo "Running: $CMD"
+          eval $CMD
+        continue-on-error: true
+
+      - name: Upload sync logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sync-logs-${{ github.run_id }}
+          path: |
+            apps/web/logs/
+            apps/web/*.log
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "Validate & Sync failed! Check the logs for details."
+          # Add notification logic here (Slack, Discord, email, etc.)

@@ -1,75 +1,92 @@
-# my-better-t-app
+# Ruzgar Lastik Sync
 
-This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines Next.js, Hono, TRPC, and more.
+This project is a unified Next.js application for syncing products from supplier APIs to Shopify, including a dashboard for management.
+Built with the [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack).
+
+## Architecture
+
+- **Unified Application:** Both Frontend (Dashboard) and Backend (API/Workers) run within `apps/web`.
+- **Framework:** Next.js 15+ (App Router)
+- **API:** Hono integrated into Next.js API Routes + tRPC for type-safe client-server communication.
+- **Database:** PostgreSQL (Neon) & Drizzle ORM.
+- **Queue/Jobs:** Custom In-Memory/DB-backed Job Scheduler (running within Next.js or via Cron Scripts).
 
 ## Features
 
-- **TypeScript** - For type safety and improved developer experience
-- **Next.js** - Full-stack React framework
-- **TailwindCSS** - Utility-first CSS for rapid UI development
-- **shadcn/ui** - Reusable UI components
-- **Hono** - Lightweight, performant server framework
-- **tRPC** - End-to-end type-safe APIs
-- **Bun** - Runtime environment
-- **Drizzle** - TypeScript-first ORM
-- **PostgreSQL** - Database engine
-- **Authentication** - Better-Auth
-- **Turborepo** - Optimized monorepo build system
+- **Ingest-First Sync:** Fetches raw data from suppliers to DB, then processes it.
+- **Product Normalization:** Intelligent parsing of product titles and attributes.
+- **Pricing Rules:** Configurable pricing logic.
+- **Dashboard:** Real-time monitoring of sync status and logs.
 
 ## Getting Started
 
-First, install the dependencies:
+### Prerequisites
+- Node.js 20+ or Bun 1.x
+- PostgreSQL Database
+
+### Installation
 
 ```bash
 bun install
 ```
-## Database Setup
 
-This project uses PostgreSQL with Drizzle ORM.
+### Configuration
 
-1. Make sure you have a PostgreSQL database set up.
-2. Update your `apps/server/.env` file with your PostgreSQL connection details.
+1. Create a `.env` file in the root directory (copy from `.env.example` if available).
+2. Configure your database URL and Shopify credentials.
 
-3. Apply the schema to your database:
+```env
+DATABASE_URL=postgresql://...
+SHOPIFY_SHOP_DOMAIN=...
+SHOPIFY_ACCESS_TOKEN=...
+```
+
+### Database Setup
+
+Apply the schema to your database:
 ```bash
 bun run db:push
 ```
 
+### Running Development Server
 
-Then, run the development server:
-
+Start the unified application:
 ```bash
 bun run dev
 ```
 
-Open [http://localhost:3001](http://localhost:3001) in your browser to see the web application.
-The API is running at [http://localhost:3000](http://localhost:3000).
-
-
-
-
-
-
+- **Dashboard:** [http://localhost:3000](http://localhost:3000)
+- **API:** [http://localhost:3000/api](http://localhost:3000/api)
 
 ## Project Structure
 
 ```
-my-better-t-app/
+ruzgarlastik-prd-sync/
 ├── apps/
-│   ├── web/         # Frontend application (Next.js)
-│   └── server/      # Backend API (Hono, TRPC)
+│   └── web/            # Unified Next.js Application
+│       ├── src/app     # App Router (Pages & API)
+│       ├── src/services # Business Logic & Workers
+│       └── scripts/    # Operational Scripts (Cron, Admin)
 ├── packages/
-│   ├── api/         # API layer / business logic
-│   ├── auth/        # Authentication configuration & logic
-│   └── db/          # Database schema & queries
+│   ├── api/            # Shared API definitions
+│   ├── auth/           # Authentication logic
+│   └── db/             # Database schema & client
+└── conductor/          # Project Management & Documentation
 ```
 
-## Available Scripts
+## Operational Scripts
 
-- `bun run dev`: Start all applications in development mode
-- `bun run build`: Build all applications
-- `bun run dev:web`: Start only the web application
-- `bun run dev:server`: Start only the server
-- `bun run check-types`: Check TypeScript types across all apps
-- `bun run db:push`: Push schema changes to database
-- `bun run db:studio`: Open database studio UI
+Operational scripts are located in `apps/web/scripts`. They can be run via Bun:
+
+- **Validate & Sync:**
+  ```bash
+  bun run apps/web/scripts/validate-and-sync.ts
+  ```
+- **Check DB:**
+  ```bash
+  bun run apps/web/scripts/check-db.ts
+  ```
+- **Create Admin User:**
+  ```bash
+  bun run apps/web/scripts/create-admin.ts
+  ```

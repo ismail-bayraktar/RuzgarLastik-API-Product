@@ -28,7 +28,7 @@
 ## Phase 4: Mimari Sadeleştirme ve Stabilizasyon
 - [x] Task: Apps Birleştirme (Unified Next.js)
   - **Açıklama:** Server ve Web uygulamaları apps/web altında birleştirildi.
-- [ ] Task: apps/server Klasörünü Sil
+- [x] Task: apps/server Klasörünü Sil
   - **Açıklama:** Unified yapı doğrulandıktan sonra eski server klasörünü kaldır.
-- [ ] Task: Conductor - User Manual Verification 'Unified Architecture' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Unified Architecture' (Protocol in workflow.md)
 

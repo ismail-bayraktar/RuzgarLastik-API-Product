@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-dotenv.config({ path: '../../apps/server/.env' });
+dotenv.config({ path: '../../apps/web/.env' });
 
 import { neon } from '@neondatabase/serverless';
 

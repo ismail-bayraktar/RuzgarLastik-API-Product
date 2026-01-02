@@ -358,64 +358,102 @@ Farklı ürün tiplerine göre farklı formatlar:
 
 ## Başlama Checklist
 
-Bu değerleri sırayla hazırla, her PR'den önce tick et:
+### ✅ Tamamlanan Özellikler
 
-### 1. Ön Kurulum
+#### 1. Ön Kurulum
+- [x] Bun runtime kurulu
+- [x] Better-T-Stack kurulumu yapıldı
+- [x] Turborepo monorepo yapısı
+- [x] Neon PostgreSQL entegrasyonu
+- [x] `.env` şablonları hazır
 
-- [ ] Bun runtime kurulu (`bun --version`)
-- [ ] Better-T CLI kurulumu yapıldı
-- [ ] Repomu GitHub'a push ettim
-- [ ] Neon PostgreSQL database creation
-- [ ] `.env` dosyaları hazır (prod + local)
+#### 2. Drizzle & Database
+- [x] Schema dosyaları (`packages/db/src/schema/`)
+  - [x] `product.ts` - productMap, syncSessions, syncItems
+  - [x] `pricing.ts` - pricingRules
+  - [x] `settings.ts` - settings
+  - [x] `cache.ts` - productsCache, cacheMetadata
+  - [x] `supplier.ts` - supplierProducts, fetchJobs, history
+  - [x] `auth.ts` - Better Auth tabloları
+- [x] Migration dosyaları oluşturuldu
+- [x] `bun db:push` ile Neon'a apply
 
-### 2. Drizzle & Database
+#### 3. Backend (Hono) - 14 Servis
+- [x] `syncOrchestrator.ts` - Ana sync koordinasyonu
+- [x] `shopifyService.ts` - GraphQL client, rate limiting
+- [x] `supplierService.ts` - Tedarikçi API
+- [x] `supplierProductService.ts` - Kalıcı ürün deposu
+- [x] `titleParserService.ts` - Ürün title parsing
+- [x] `pricingRulesService.ts` - Fiyat hesaplama
+- [x] `metafieldUtils.ts` - Metafield type coercion
+- [x] `rateLimiter.ts` - Shopify rate limiting
+- [x] `retryUtils.ts` - Exponential backoff
+- [x] `cacheService.ts` - Ürün cache
+- [x] `validationService.ts` - Ürün validasyonu
+- [x] `fetchJobService.ts` - Fetch job yönetimi
+- [x] `jobSchedulerService.ts` - Otomatik retry
 
-- [ ] Schema dosyaları (`packages/db/schema.ts`) yazıldı
-- [ ] Migration oluşturuldu (`drizzle-kit generate`)
-- [ ] Neon'a apply edildi (`bun db:push`)
-- [ ] Seed script hazır (mock data)
+#### 4. Frontend (Next.js) - 8 Sayfa
+- [x] `/dashboard` - Overview
+- [x] `/dashboard/sync` - Sync pipeline UI
+- [x] `/dashboard/pricing-rules` - Fiyat kuralları CRUD
+- [x] `/dashboard/products` - Ürün listesi
+- [x] `/dashboard/supplier` - Tedarikçi ürünleri
+- [x] `/dashboard/settings` - Ayarlar
+- [x] `/dashboard/logs` - Sync logları
+- [x] `/dashboard/api-test` - API test arayüzü
 
-### 3. Backend (Hono)
+#### 5. tRPC Routers - 5 Router
+- [x] `sync.ts` - Sync işlemleri
+- [x] `products.ts` - Ürün sorguları
+- [x] `priceRules.ts` - Fiyat kuralları
+- [x] `settings.ts` - Ayarlar
+- [x] `supplierProducts.ts` - Tedarikçi ürünleri
 
-- [ ] `apps/server/src/` klasör yapısı oluşturuldu
-- [ ] Services yazıldı:
-  - [ ] `SupplierService` (Mock + Real API)
-  - [ ] `ShopifyService` (GraphQL client)
-  - [ ] `TitleParserService`
-  - [ ] `PricingRulesService`
-- [ ] tRPC router'ı oluşturuldu
-- [ ] Rate limiter middleware
+#### 6. Dokümantasyon - 7 Dosya
+- [x] `01-claude-context.md` - Proje özeti
+- [x] `02-prd-detailed.md` - Detaylı PRD
+- [x] `03-metafields-reference.md` - Metafield şemaları
+- [x] `04-flows-architecture.md` - Data flow diyagramları
+- [x] `05-env-configuration.md` - Environment değişkenleri
+- [x] `06-environment-setup.md` - Kurulum rehberi (YENİ)
+- [x] `07-troubleshooting.md` - Hata çözümleri (YENİ)
 
-### 4. Frontend (Next.js)
-
-- [ ] Dashboard sayfaları:
-  - [ ] `/dashboard` (overview)
-  - [ ] `/sync` (manual sync trigger)
-  - [ ] `/pricing-rules` (CRUD)
-  - [ ] `/settings` (config view)
-- [ ] tRPC hooks (useQuery, useMutation)
-
-### 5. Testler
-
+### 📋 Devam Eden / Planlanan
 - [ ] Unit testler (title parser vb.)
 - [ ] Integration testler (Shopify mock)
 - [ ] E2E testler (full sync scenario)
-
-### 6. Dokümantasyon
-
-- [ ] `docs/flows/` tüm akışlar diyagram + açıklamalı
-- [ ] `docs/reference/` metafields, API contracts
-- [ ] README.md (quick start)
+- [ ] GitHub Actions CI/CD
+- [ ] Production deployment
 
 ---
 
-## Sonraki Adımlar
+## Hızlı Başlangıç
 
-1. Bu dosyayı oku (✅ yapıldı)
-2. `02-prd.md` oku (detaylı PRD)
-3. `03-metafields-reference.md` oku (tüm field şeması)
-4. Sondaki 3 soruyu cevapla (pricing rules, EU data, title parsing kapsamı)
-5. `04-flows.md` ve `05-env-config.md` oluşturulacak (cevapların ışığında)
-6. Better-T kurmaya başla (`bun create better-t-stack@latest ...`)
-7. Drizzle schema yazarak başla
-8. AI ile vibe coding'e başla! 🚀
+```bash
+# 1. Bağımlılıkları kur
+bun install
+
+# 2. .env dosyalarını oluştur
+# Detaylar: docs/06-environment-setup.md
+
+# 3. Database'i hazırla
+bun db:push
+
+# 4. Sistemi başlat
+bun dev
+
+# 5. Tarayıcıda aç
+# http://localhost:3000/login
+# admin@ruzgarlastik.com / RuzgarLastik2024!
+```
+
+## Önemli Dökümantasyon
+
+| Dosya | Ne Zaman Oku |
+|-------|--------------|
+| `06-environment-setup.md` | **İlk kurulumda - .env oluşturmak için** |
+| `07-troubleshooting.md` | **Hata aldığında** |
+| `02-prd-detailed.md` | Proje gereksinimlerini anlamak için |
+| `03-metafields-reference.md` | Metafield çalışırken |
+| `04-flows-architecture.md` | Sync akışını anlamak için |

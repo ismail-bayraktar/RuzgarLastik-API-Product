@@ -11,11 +11,13 @@ function runScript(scriptName: string, args: string[] = []) {
   
   const result = spawnSync("npx", ["tsx", scriptPath, ...args], {
     stdio: "inherit",
-    env: process.env
+    env: process.env,
+    shell: true // Windows uyumluluğu için kritik
   });
 
   if (result.status !== 0) {
     console.error(`❌ Script ${scriptName} failed with exit code ${result.status}`);
+    if (result.error) console.error("Error details:", result.error);
     process.exit(result.status || 1);
   }
 }

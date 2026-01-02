@@ -28,8 +28,11 @@
     "better-auth": "catalog:",
     "dotenv": "catalog:",
     "zod": "catalog:",
+    "hono": "^4.11.1",
+    "@hono/trpc-server": "^0.4.0",
     "@my-better-t-app/api": "workspace:*",
-    "@my-better-t-app/auth": "workspace:*"
+    "@my-better-t-app/auth": "workspace:*",
+    "@my-better-t-app/db": "workspace:*"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.10",

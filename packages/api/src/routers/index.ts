@@ -3,10 +3,11 @@ import { syncRouter } from "./sync";
 import { productsRouter } from "./products";
 import { priceRulesRouter } from "./priceRules";
 import { settingsRouter } from "./settings";
+import { supplierProductsRouter } from "./supplierProducts";
 
 export const appRouter = router({
 	healthCheck: publicProcedure.query(() => {
-		return "OK";
+		return { status: "OK", timestamp: new Date().toISOString() };
 	}),
 	privateData: protectedProcedure.query(({ ctx }) => {
 		return {
@@ -18,5 +19,6 @@ export const appRouter = router({
 	products: productsRouter,
 	priceRules: priceRulesRouter,
 	settings: settingsRouter,
+	supplierProducts: supplierProductsRouter,
 });
 export type AppRouter = typeof appRouter;

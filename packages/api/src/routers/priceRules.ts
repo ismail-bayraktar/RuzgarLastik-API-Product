@@ -1,7 +1,6 @@
 import { protectedProcedure, router } from "../index";
-import { db } from "@my-better-t-app/db";
+import { db, desc } from "@my-better-t-app/db";
 import { priceRules } from "@my-better-t-app/db/schema";
-import { eq, and, desc } from "drizzle-orm";
 import { z } from "zod";
 
 export const priceRulesRouter = router({
@@ -14,7 +13,8 @@ export const priceRulesRouter = router({
         })
         .optional()
     )
-    .query(async ({ input }) => {
+    .query(async ({ input: _input }) => {
+      // TODO: Use _input to filter by category/active status
       const rules = await db.select().from(priceRules).orderBy(desc(priceRules.priority));
       return {
         rules: rules.map(r => ({

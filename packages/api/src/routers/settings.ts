@@ -1,5 +1,33 @@
 import { protectedProcedure, router } from "../index";
+import { db, eq } from "@my-better-t-app/db";
+import { settings } from "@my-better-t-app/db/schema";
 import { z } from "zod";
+
+// Sync automation settings schema
+const syncAutomationSchema = z.object({
+  enabled: z.boolean().default(true),
+  interval: z.enum(["1h", "3h", "6h", "12h", "24h", "manual"]).default("6h"),
+  preferredHours: z.array(z.number().min(0).max(23)).default([2, 8, 14, 20]),
+  categories: z.array(z.enum(["tire", "rim", "battery"])).default(["tire", "rim", "battery"]),
+  notifications: z.object({
+    email: z.boolean().default(false),
+    emailAddress: z.string().email().optional(),
+    onSuccess: z.boolean().default(true),
+    onError: z.boolean().default(true),
+    onWarning: z.boolean().default(false),
+  }).default({
+    email: false,
+    onSuccess: true,
+    onError: true,
+    onWarning: false,
+  }),
+  skipErrorProducts: z.boolean().default(false),
+  dryRunFirst: z.boolean().default(true),
+});
+
+type SyncAutomationSettings = z.infer<typeof syncAutomationSchema>;
+
+const SYNC_AUTOMATION_KEY = "sync_automation";
 
 export const settingsRouter = router({
   get: protectedProcedure.query(async () => {
@@ -85,7 +113,10 @@ export const settingsRouter = router({
         };
       }
 
-      const data = await response.json();
+      const data = await response.json() as {
+        errors?: unknown;
+        data?: { shop?: unknown };
+      };
 
       if (data.errors) {
         return {
@@ -113,5 +144,158 @@ export const settingsRouter = router({
       configured: process.env.USE_MOCK_SUPPLIER === "true" || !!process.env.SUPPLIER_API_URL,
       message: "Supplier configuration check",
     };
+  }),
+
+  // Sync Automation Settings
+  getSyncAutomation: protectedProcedure.query(async () => {
+    try {
+      const result = await db
+        .select()
+        .from(settings)
+        .where(eq(settings.key, SYNC_AUTOMATION_KEY))
+        .limit(1);
+
+      if (result.length === 0) {
+        // Return default settings
+        return {
+          success: true,
+          settings: syncAutomationSchema.parse({}),
+        };
+      }
+
+      const parsed = JSON.parse(result[0]!.value);
+      return {
+        success: true,
+        settings: syncAutomationSchema.parse(parsed),
+      };
+    } catch (error: unknown) {
+      return {
+        success: false,
+        error: (error as Error).message,
+        settings: syncAutomationSchema.parse({}),
+      };
+    }
+  }),
+
+  updateSyncAutomation: protectedProcedure
+    .input(syncAutomationSchema.partial())
+    .mutation(async ({ input }) => {
+      try {
+        // Get existing settings first
+        const existing = await db
+          .select()
+          .from(settings)
+          .where(eq(settings.key, SYNC_AUTOMATION_KEY))
+          .limit(1);
+
+        let currentSettings: SyncAutomationSettings;
+        if (existing.length > 0) {
+          currentSettings = syncAutomationSchema.parse(JSON.parse(existing[0]!.value));
+        } else {
+          currentSettings = syncAutomationSchema.parse({});
+        }
+
+        // Merge with input
+        const updatedSettings: SyncAutomationSettings = {
+          ...currentSettings,
+          ...input,
+          notifications: {
+            ...currentSettings.notifications,
+            ...(input.notifications || {}),
+          },
+        };
+
+        const jsonValue = JSON.stringify(updatedSettings);
+
+        // Upsert settings
+        await db
+          .insert(settings)
+          .values({
+            key: SYNC_AUTOMATION_KEY,
+            value: jsonValue,
+            updatedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: settings.key,
+            set: {
+              value: jsonValue,
+              updatedAt: new Date(),
+            },
+          });
+
+        return {
+          success: true,
+          settings: updatedSettings,
+        };
+      } catch (error: unknown) {
+        return {
+          success: false,
+          error: (error as Error).message,
+        };
+      }
+    }),
+
+  // Get next scheduled sync time based on settings
+  getNextSyncTime: protectedProcedure.query(async () => {
+    try {
+      const result = await db
+        .select()
+        .from(settings)
+        .where(eq(settings.key, SYNC_AUTOMATION_KEY))
+        .limit(1);
+
+      let automationSettings: SyncAutomationSettings;
+      if (result.length > 0) {
+        automationSettings = syncAutomationSchema.parse(JSON.parse(result[0]!.value));
+      } else {
+        automationSettings = syncAutomationSchema.parse({});
+      }
+
+      if (!automationSettings.enabled || automationSettings.interval === "manual") {
+        return {
+          enabled: automationSettings.enabled,
+          interval: automationSettings.interval,
+          nextSync: null,
+          nextSyncLabel: "Manuel tetikleme",
+        };
+      }
+
+      const now = new Date();
+      const currentHour = now.getHours();
+      const preferredHours = automationSettings.preferredHours.sort((a, b) => a - b);
+
+      // Find next preferred hour
+      let nextHour = preferredHours.find(h => h > currentHour);
+      let isToday = true;
+
+      if (nextHour === undefined) {
+        nextHour = preferredHours[0] || 0;
+        isToday = false;
+      }
+
+      const nextSync = new Date(now);
+      if (!isToday) {
+        nextSync.setDate(nextSync.getDate() + 1);
+      }
+      nextSync.setHours(nextHour, 0, 0, 0);
+
+      const day = isToday ? "Bugun" : "Yarin";
+      const hourStr = nextHour.toString().padStart(2, "0");
+
+      return {
+        enabled: automationSettings.enabled,
+        interval: automationSettings.interval,
+        nextSync: nextSync.toISOString(),
+        nextSyncLabel: `${day} ${hourStr}:00`,
+      };
+    } catch (error: unknown) {
+      return {
+        enabled: false,
+        interval: "manual",
+        nextSync: null,
+        nextSyncLabel: "Hata",
+        error: (error as Error).message,
+      };
+    }
   }),
 });

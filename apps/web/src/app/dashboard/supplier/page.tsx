@@ -6,7 +6,7 @@ import {
 	ChevronDown, ExternalLink, History,
 	TrendingUp, TrendingDown, Minus, X
 } from "lucide-react";
-import { trpc } from "@/lib/trpc";
+import { trpc } from "@/utils/trpc";
 import { FetchJobStatus } from "@/components/supplier/FetchJobStatus";
 import { TableFilters, TablePagination } from "@/components/sync/TableFilters";
 

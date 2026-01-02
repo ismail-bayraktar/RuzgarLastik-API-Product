@@ -6,7 +6,7 @@ import {
 	XCircle, Clock, AlertTriangle, Package,
 	TrendingUp, TrendingDown, Minus
 } from "lucide-react";
-import { trpc } from "@/lib/trpc";
+import { trpc } from "@/utils/trpc";
 import { toast } from "sonner";
 
 interface FetchJobProgress {

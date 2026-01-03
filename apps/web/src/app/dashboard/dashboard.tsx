@@ -58,7 +58,7 @@ const workflowSteps = [
 		link: "/dashboard/logs",
 		icon: AlertCircle,
 	},
-];
+] as const;
 
 export default function Dashboard({
 	session,
@@ -91,7 +91,7 @@ export default function Dashboard({
 						{workflowSteps.map((step) => (
 							<Link
 								key={step.step}
-								href={step.link}
+								href={step.link as any}
 								className="group p-3 bg-card/50 rounded-lg border border-border hover:border-primary/50 hover:bg-card transition-all"
 							>
 								<div className="flex items-center gap-2 mb-2">
@@ -198,7 +198,7 @@ export default function Dashboard({
 				<div className="flex items-center justify-between mb-4">
 					<h3 className="text-sm font-medium text-muted-foreground">Ayarlar Ozeti</h3>
 					<Link
-						href="/dashboard/settings"
+						href={"/dashboard/settings" as any}
 						className="text-sm text-primary hover:underline flex items-center gap-1"
 					>
 						Duzenle
@@ -276,7 +276,7 @@ function QuickAction({
 }) {
 	return (
 		<Link
-			href={href}
+			href={href as any}
 			className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted transition-colors"
 		>
 			<Icon className="h-4 w-4 text-muted-foreground" />

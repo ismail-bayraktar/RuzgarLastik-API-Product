@@ -16,10 +16,10 @@ export default function SettingsPage() {
 	const [shopifyTestResult, setShopifyTestResult] = useState<{success: boolean; shop?: any; error?: string} | null>(null);
 	
 	const testShopifyMutation = useMutation(trpc.settings.testShopifyConnection.mutationOptions({
-		onSuccess: (data) => {
+		onSuccess: (data: any) => {
 			setShopifyTestResult(data);
 			if (data.success) {
-				toast.success(`Shopify bağlantısı başarılı: ${(data as any).shop?.name}`);
+				toast.success(`Shopify bağlantısı başarılı: ${data.shop?.name}`);
 				queryClient.invalidateQueries({ queryKey: ["settings"] });
 			} else {
 				toast.error(`Bağlantı hatası: ${data.error}`);

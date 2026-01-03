@@ -19,7 +19,7 @@ export default function SettingsPage() {
 		onSuccess: (data) => {
 			setShopifyTestResult(data);
 			if (data.success) {
-				toast.success(`Shopify bağlantısı başarılı: ${data.shop?.name}`);
+				toast.success(`Shopify bağlantısı başarılı: ${(data as any).shop?.name}`);
 				queryClient.invalidateQueries({ queryKey: ["settings"] });
 			} else {
 				toast.error(`Bağlantı hatası: ${data.error}`);

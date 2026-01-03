@@ -51,7 +51,7 @@ export default function SettingsPage() {
 				batchSize: settings.data.settings.batchSize || 50,
 				syncConcurrency: settings.data.settings.syncConcurrency || 5,
 				maxRetries: settings.data.settings.maxRetries || 3,
-				syncMode: settings.data.settings.syncMode || "incremental",
+				syncMode: (settings.data.settings.syncMode as "incremental" | "full") || "incremental",
 				useMockSupplier: true,
 			});
 		}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	Package, Search, Filter, RefreshCw,
 	ChevronDown, ExternalLink, History,
@@ -23,6 +24,7 @@ const categoryEmojis: Record<string, string> = {
 };
 
 export default function SupplierProductsPage() {
+	const queryClient = useQueryClient();
 	// Filters state
 	const [category, setCategory] = useState<"tire" | "rim" | "battery" | undefined>();
 	const [brand, setBrand] = useState<string | undefined>();
@@ -47,22 +49,22 @@ export default function SupplierProductsPage() {
 	]);
 
 	// Queries
-	const statsQuery = trpc.supplierProducts.stats.useQuery();
-	const brandsQuery = trpc.supplierProducts.brands.useQuery({ category });
+	const statsQuery = useQuery(trpc.supplierProducts.stats.queryOptions());
+	const brandsQuery = useQuery(trpc.supplierProducts.brands.queryOptions({ category }));
 
-	const productsQuery = trpc.supplierProducts.list.useQuery({
+	const productsQuery = useQuery(trpc.supplierProducts.list.queryOptions({
 		category,
 		brand,
 		search: search || undefined,
 		inStock,
 		page,
 		pageSize,
-	});
+	}));
 
-	const productDetailQuery = trpc.supplierProducts.detail.useQuery(
-		{ sku: selectedProduct! },
-		{ enabled: !!selectedProduct }
-	);
+	const productDetailQuery = useQuery({
+		...trpc.supplierProducts.detail.queryOptions({ sku: selectedProduct! }),
+		enabled: !!selectedProduct
+	});
 
 	// Handle refetch after job complete
 	const handleJobComplete = useCallback(() => {

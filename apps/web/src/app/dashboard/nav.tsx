@@ -26,7 +26,7 @@ const navItems = [
 	{ href: "/dashboard/logs", label: "Loglar", icon: FileText },
 	{ href: "/dashboard/settings", label: "Ayarlar", icon: Settings },
 	{ href: "/dashboard/api-test", label: "API Test", icon: Plug },
-];
+] as const;
 
 export default function DashboardNav({ userName }: { userName: string }) {
 	const pathname = usePathname();
@@ -62,7 +62,7 @@ export default function DashboardNav({ userName }: { userName: string }) {
 				<div className="flex flex-col h-full">
 					<div className="p-6 border-b border-border">
 						<div className="flex items-center justify-between">
-							<Link href="/dashboard" className="flex items-center gap-3">
+							<Link href={"/dashboard" as any} className="flex items-center gap-3">
 								<img
 									src="/logo.png"
 									alt="Ruzgar Lastik"
@@ -87,7 +87,7 @@ export default function DashboardNav({ userName }: { userName: string }) {
 								return (
 									<Link
 										key={item.href}
-										href={item.href}
+										href={item.href as any}
 										onClick={() => setMobileOpen(false)}
 										className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
 											isActive

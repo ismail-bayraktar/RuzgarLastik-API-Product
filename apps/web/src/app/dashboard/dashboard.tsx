@@ -182,12 +182,12 @@ export default function Dashboard({
 						<ConnectionStatus
 							label="Shopify"
 							connected={shopifyConfig.data?.configured || false}
-							detail={shopifyConfig.data?.shopDomain}
+							detail={shopifyConfig.data?.shopDomain || undefined}
 						/>
 						<ConnectionStatus
 							label="Tedarikci API"
 							connected={supplierConfig.data?.configured || false}
-							detail={supplierConfig.data?.useMock ? "Mock Mod" : supplierConfig.data?.apiUrl}
+							detail={supplierConfig.data?.useMock ? "Mock Mod" : (supplierConfig.data?.apiUrl || undefined)}
 							warning={supplierConfig.data?.useMock}
 						/>
 					</div>

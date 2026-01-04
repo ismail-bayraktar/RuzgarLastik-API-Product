@@ -2,595 +2,80 @@
 
 ## 📋 İçindekiler
 
-1. [Environment Files Structure](#environment-files-structure)
-2. [Backend Environment (.env)](#backend-environment-env)
-3. [Frontend Environment (.env)](#frontend-environment-env-1)
-4. [Database Configuration](#database-configuration)
-5. [Shopify Configuration](#shopify-configuration)
-6. [Supplier API Configuration](#supplier-api-configuration)
-7. [Sync Configuration](#sync-configuration)
-8. [Better Auth Configuration](#better-auth-configuration)
-9. [Settings Database Table](#settings-database-table)
-10. [Deployment Environment Variables](#deployment-environment-variables)
-11. [Troubleshooting & Validation](#troubleshooting--validation)
+1. [Environment Dosya Yapısı](#environment-dosya-yapısı)
+2. [Tek Dosya: .env.local](#tek-dosya-envlocal)
+3. [Vercel Deployment Ayarları](#vercel-deployment-ayarları)
 
 ---
 
-## Environment Files Structure
+## Environment Dosya Yapısı
 
-### Repository Layout
+Projemiz **Unified Monorepo** yapısında olduğu için tek bir konfigürasyon noktası vardır.
 
 ```
 ruzgar-lastik-sync/
-├─ .env                    # ← (Optional) Root env for Turbo
 ├─ apps/
 │  └─ web/
-│     ├─ .env              # ← Base env (committed)
-│     ├─ .env.local        # ← LOCAL SECRETS (git-ignored)
-│     ├─ .env.production   # ← Production overrides (optional)
-│     └─ .env.example      # ← Template (commit this)
-├─ packages/
-│  └─ db/
-│     └─ .env              # ← Database URL for Drizzle Studio/Migration
-└─ .gitignore
-   # .env.local
-   # .env.*.local
+│     ├─ .env.local        # ← TÜM GİZLİ ANAHTARLAR BURADA (Git'e atılmaz)
+│     └─ .env.example      # ← Şablon (Git'e atılır)
 ```
 
-**Golden Rule:** `.env.local` dosyaları asla commit edilmez. Vercel'de bu değişkenler "Environment Variables" panelinden girilir.
+**Not:** Backend (`apps/server`) artık `apps/web` içinde birleştiği için ayrı bir `.env` dosyasına ihtiyacı yoktur.
 
 ---
 
-## Unified Environment Configuration
+## Tek Dosya: .env.local
 
-### Location: `apps/web/.env.local`
-
-Bu proje Unified Monorepo yapısına geçtiği için **tek bir .env dosyası** (veya Vercel Environment Variables) yeterlidir. Backend ve Frontend aynı değişkenleri kullanır.
-
-`NEXT_PUBLIC_` ile başlayan değişkenler tarayıcı tarafında erişilebilir olur. Diğerleri sadece sunucu tarafında (API Routes) kalır.
+Aşağıdaki içeriği `apps/web/.env.local` dosyasına kopyalayıp doldurun.
 
 ```bash
 # ============================================
-# DATABASE CONFIGURATION
+# DATABASE (Neon PostgreSQL)
 # ============================================
-
-DATABASE_URL=postgresql://user:password@db.neon.tech/dbname
-# Neon PostgreSQL connection string
-# Get from: https://console.neon.tech/
-# Format: postgresql://[user][:password]@[host][:port]/[database]
-# Keep connection pooling ON (Neon default)
+# Neon Console -> Connection Details -> Connection String
+DATABASE_URL=postgresql://neondb_owner:xxxxx@ep-xxx.eu-central-1.aws.neon.tech/neondb?sslmode=require
 
 # ============================================
-# BETTER AUTH (Authentication)
+# BETTER AUTH (Kimlik Doğrulama)
 # ============================================
-
-BETTER_AUTH_SECRET=generated_secret_key_min_32_chars
-# Generate: openssl rand -base64 32
-# Used for session signing
-
+# Secret Üretme: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+BETTER_AUTH_SECRET=buraya-uzun-ve-karmasik-bir-secret-yaz
 BETTER_AUTH_URL=http://localhost:3000
-# Backend URL for auth callbacks
-# Local: http://localhost:3000
-# Production: https://yourdomain.com (Vercel'de otomatik ayarlanabilir)
 
 # ============================================
-# SHOPIFY CONFIGURATION
+# SHOPIFY (Mağaza Bağlantısı)
 # ============================================
-
-SHOPIFY_SHOP_DOMAIN=tgsqxx-gb.myshopify.com
-# Shopify admin URL'sinin domain kısmı
-
+SHOPIFY_SHOP_DOMAIN=magaza-adi.myshopify.com
 SHOPIFY_ACCESS_TOKEN=shpat_xxxxxxxxxxxxxxxxxxxxxxxx
-# Shopify Admin API access token
-
 SHOPIFY_API_VERSION=2024-10
-# Shopify API version (stable)
-
-SHOPIFY_LOCATION_ID=gid://shopify/Location/12345678
-# Default location for inventory
+SHOPIFY_LOCATION_ID=gid://shopify/Location/123456789
 
 # ============================================
-# SUPPLIER API CONFIGURATION
+# SUPPLIER (Tedarikçi API)
 # ============================================
-
 USE_MOCK_SUPPLIER=true
-# true = use mock JSON data (development)
-# false = use real supplier API
-
-SUPPLIER_API_URL=https://api.supplier.com/v1/products
-# Real supplier API endpoint
-
-SUPPLIER_API_KEY=supplier_key_xxxxxxxx
-# Authentication key for supplier API
-
+SUPPLIER_API_URL=https://api.tedarikci.com/v1
+SUPPLIER_API_KEY=api-key
 SUPPLIER_API_TIMEOUT=30000
-# Timeout in milliseconds (30 seconds)
 
 # ============================================
-# SYNC ENGINE CONFIGURATION
+# APP (Genel Ayarlar)
 # ============================================
-
-SYNC_BATCH_SIZE=50
-# Products per batch
-
-SYNC_CONCURRENCY=5
-# Parallel operations
-
-MAX_RETRIES=3
-# Retry attempts per failed product
-
-SYNC_MODE=incremental
-# incremental | full
-
-SYNC_CATEGORIES=tire,rim,battery
-# Categories to sync
-
-# ============================================
-# NEXT.JS PUBLIC VARIABLES
-# ============================================
-
 NEXT_PUBLIC_APP_URL=http://localhost:3000
-# Frontend URL
-
-NEXT_PUBLIC_SERVER_URL=http://localhost:3000
-# Backend URL (Same as App URL in Unified Architecture)
-# Production'da bu değişken boş bırakılabilir veya relative path ("/") kullanılabilir.
-
-# ============================================
-# LOGGING
-# ============================================
-
-LOG_LEVEL=info
-# off, error, warn, info, debug, trace
-```
-
-### Example `.env.example`
-
-```bash
-# Copy this to .env.local and fill in actual values
-
-DATABASE_URL=
-BETTER_AUTH_SECRET=
-BETTER_AUTH_URL=http://localhost:3000
-
-SHOPIFY_SHOP_DOMAIN=
-SHOPIFY_ACCESS_TOKEN=
-SHOPIFY_API_VERSION=2024-10
-SHOPIFY_LOCATION_ID=
-
-USE_MOCK_SUPPLIER=true
-SUPPLIER_API_URL=
-SUPPLIER_API_KEY=
-
-SYNC_BATCH_SIZE=50
-SYNC_CONCURRENCY=5
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-```
-
----
-
-## Database Configuration
-
-### Neon PostgreSQL Setup
-
-1. **Account Creation**
-   - Go: https://console.neon.tech/
-   - Sign up with GitHub/Google
-   - Create project: `ruzgar-lastik-sync`
-
-2. **Connection String**
-   - Project → Connection string
-   - Format: `postgresql://[user]:[password]@[host]/[database]`
-   - Copy to `.env` as `DATABASE_URL`
-
-3. **Connection Pooling**
-   ```
-   # Default endpoint supports pooling
-   Use: [hostname]-pooler.postgres.vercel-storage.com
-   This handles 1000s of connections
-   ```
-
-4. **Drizzle Configuration**
-   ```typescript
-   // packages/db/drizzle.config.ts
-   
-   export default {
-     schema: './schema.ts',
-     out: './migrations',
-     driver: 'postgresql',
-     dbCredentials: {
-       url: process.env.DATABASE_URL!,
-     },
-   };
-   ```
-
-5. **Migrations**
-   ```bash
-   # Generate migration
-   bun db:generate
-   
-   # Apply migration
-   bun db:push
-   
-   # View migrations
-   ls packages/db/migrations/
-   ```
-
----
-
-## Shopify Configuration
-
-### Step 1: Get Credentials
-
-**Location ID:**
-```bash
-# Run test to find Location ID
-npm run verify:location-id
-
-# Output:
-# Location ID: gid://shopify/Location/12345678
-# Name: Rüzgar Lastik - Ana Depo
-```
-
-**Access Token:**
-```bash
-# 1. Shopify Admin → Settings → Apps and sales channels → Develop apps
-# 2. Create app: "Rüzgar Lastik Sync"
-# 3. Admin API credentials → Install app
-# 4. Generate access token
-# 5. Copy token (appears once!) to .env
-```
-
-**Required Scopes:**
-```
-write_products
-read_products
-write_inventory
-read_inventory
-read_metaobjects
-write_metaobjects
-```
-
-### Step 2: Verify Configuration
-
-```bash
-# Test Shopify connection
-npm run verify:shopify
-
-# Success output:
-# ✅ Shop: Rüzgar Lastik
-# ✅ Domain: tgsqxx-gb.myshopify.com
-# ✅ Plan: Shopify Plus
-# ✅ Location: gid://shopify/Location/12345678
-# ✅ Metafield definitions: 16/16 (ready)
-```
-
----
-
-## Supplier API Configuration
-
-### Mock Supplier (Development)
-
-```bash
-# .env
-USE_MOCK_SUPPLIER=true
-```
-
-Mock data location: `apps/server/data/mock-products.json`
-
-Example:
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "sku": "TIRE-205-55R16-MICHELIN",
-      "title": "Michelin Primacy 4 205/55R16 91V",
-      "category": "tire",
-      "price": 850,
-      "cost": 650,
-      "stock": 120,
-      "attributes": {
-        "brand": "Michelin",
-        "eu_fuel": "B",
-        "eu_wet": "B",
-        "eu_noise": 71
-      }
-    }
-  ]
-}
-```
-
-### Real Supplier API (Production)
-
-```bash
-# .env
-USE_MOCK_SUPPLIER=false
-SUPPLIER_API_URL=https://api.supplier.com/v1/products
-SUPPLIER_API_KEY=your_api_key_here
-SUPPLIER_API_TIMEOUT=30000
-```
-
-**Expected Response Format:**
-
-```typescript
-interface SupplierResponse {
-  success: boolean;
-  data: Array<{
-    sku: string;
-    title: string;
-    category: "tire" | "rim" | "battery";
-    price?: number;
-    cost: number;
-    stock: number;
-    attributes?: Record<string, unknown>;
-    images?: Array<{ src: string; alt?: string }>;
-  }>;
-  pagination?: {
-    page: number;
-    limit: number;
-    total: number;
-    hasMore: boolean;
-  };
-}
-```
-
----
-
-## Sync Configuration
-
-### Default Values (Override via .env or Dashboard)
-
-| Setting | Default | Min | Max | Type |
-|---------|---------|-----|-----|------|
-| SYNC_BATCH_SIZE | 50 | 10 | 200 | integer |
-| SYNC_CONCURRENCY | 5 | 1 | 10 | integer |
-| MAX_RETRIES | 3 | 1 | 5 | integer |
-| SYNC_MODE | incremental | - | - | enum |
-| SYNC_MIN_STOCK | 0 | 0 | 999999 | integer |
-
-### Category Markup (Default Pricing)
-
-| Category | Default Markup | Configurable? |
-|----------|---|---|
-| tire | +25% (1.25x) | ✅ Yes (dashboard) |
-| rim | +20% (1.20x) | ✅ Yes (dashboard) |
-| battery | +18% (1.18x) | ✅ Yes (dashboard) |
-
-**Override via Dashboard:**
-- `/dashboard/pricing-rules`
-- Create category-specific rules
-- Stored in `price_rules` table
-
----
-
-## Better Auth Configuration
-
-### Generate Secret
-
-```bash
-# Generate 32+ char random secret
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-
-# Output:
-# a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6
-
-# Add to .env
-BETTER_AUTH_SECRET=a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6
-```
-
-### Session Storage
-
-By default, Better Auth uses:
-- **Local Development:** In-memory (fast, loses on restart)
-- **Production:** Database (persists)
-
-### Configure Database Session
-
-```typescript
-// apps/server/auth.ts
-
-import { betterAuth } from "better-auth";
-import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { db } from "@packages/db";
-
-export const auth = betterAuth({
-  database: drizzleAdapter(db, {
-    provider: "postgres",
-  }),
-  secret: process.env.BETTER_AUTH_SECRET,
-  baseURL: process.env.BETTER_AUTH_URL,
-  plugins: [
-    // Additional plugins if needed
-  ],
-});
-```
-
----
-
-## Settings Database Table
-
-### Runtime Configuration (Changeable without restart)
-
-Stored in `settings` table (key-value store):
-
-```typescript
-// apps/server/services/settingsService.ts
-
-export class SettingsService {
-  async get(key: string): Promise<string | null> {
-    const result = await db.query.settings.findFirst({
-      where: (s) => eq(s.key, key),
-    });
-    return result?.value ?? null;
-  }
-
-  async set(key: string, value: string | number | boolean): Promise<void> {
-    await db.insert(settings).values({
-      key,
-      value: String(value),
-    }).onConflict(sql`(key)`).doUpdate({
-      set: { value: String(value) },
-    });
-  }
-}
-```
-
-### Available Settings
-
-| Key | Type | Default | Use |
-|-----|------|---------|-----|
-| `category_markup_tire` | number | 1.25 | Tire base markup |
-| `category_markup_rim` | number | 1.20 | Rim base markup |
-| `category_markup_battery` | number | 1.18 | Battery base markup |
-| `batch_size` | integer | 50 | Sync batch size |
-| `sync_concurrency` | integer | 5 | Parallel operations |
-| `max_retries` | integer | 3 | Retry attempts |
-| `last_sync_at` | timestamp | - | Last successful sync |
-| `sync_enabled` | boolean | true | Enable/disable auto sync |
-
-### Update Settings (Admin API)
-
-```typescript
-// tRPC procedure
-router.mutation('updateSetting', async (input: { key: string; value: unknown }) => {
-  await settingsService.set(input.key, input.value);
-  return { success: true };
-});
-```
-
----
-
-## Deployment Environment Variables
-
-### Vercel Deployment
-
-**Set variables via Vercel Dashboard:**
-
-1. Go: https://vercel.com/dashboard
-2. Select project: `ruzgarlastik-sync`
-3. Settings → Environment Variables
-4. Add all required variables (DATABASE_URL, BETTER_AUTH_SECRET, SHOPIFY keys, etc.)
-
-**Distinction:**
-
-```
-Development (local):   apps/web/.env.local
-Preview (branches):    Vercel Environment Variables
-Production (main):     Vercel Environment Variables (prod-specific)
-```
-
-### Example Production Config (Vercel)
-
-```bash
-# Environment Variables
-
-SHOPIFY_SHOP_DOMAIN=tgsqxx-gb.myshopify.com
-SHOPIFY_ACCESS_TOKEN=shpat_prod_xxxxx
-SHOPIFY_LOCATION_ID=gid://shopify/Location/...
-
-DATABASE_URL=postgresql://prod_user:prod_pass@prod.neon.tech/prod_db?sslmode=require
-
-USE_MOCK_SUPPLIER=false
-SUPPLIER_API_URL=https://api.supplier.com/v1
-SUPPLIER_API_KEY=prod_api_key_xxxxx
-
-BETTER_AUTH_SECRET=prod_secret_xxxxx
-BETTER_AUTH_URL=https://ruzgarlastik-prod-sync.vercel.app
-
-NEXT_PUBLIC_APP_URL=https://ruzgarlastik-prod-sync.vercel.app
-# NEXT_PUBLIC_SERVER_URL is NOT required in production (defaults to relative path)
+# Production'da Vercel URL'i (örn: https://ruzgarlastik-sync.vercel.app)
 
 LOG_LEVEL=info
 ```
 
 ---
 
-## Troubleshooting & Validation
+## Vercel Deployment Ayarları
 
-### ❌ Error: "SHOPIFY_ACCESS_TOKEN not found"
+Projeyi Vercel'e deploy ederken bu değişkenleri **Environment Variables** bölümüne eklemelisiniz.
 
-```bash
-Solution:
-1. Check .env file exists in project root
-2. Restart dev server: bun run dev
-3. Regenerate token from Shopify Admin
-```
+1. **Database:** `DATABASE_URL` (Neon Production URL)
+2. **Auth:** `BETTER_AUTH_SECRET` (Production için yeni bir secret üretin)
+3. **Auth URL:** `BETTER_AUTH_URL` (Production domaininiz, örn: `https://ruzgarlastik-sync.vercel.app`)
+4. **Shopify:** `SHOPIFY_` ile başlayan tüm değişkenler.
 
-### ❌ Error: "DATABASE_URL not set"
-
-```bash
-Solution:
-1. Create Neon project: https://console.neon.tech/
-2. Copy connection string
-3. Add to .env: DATABASE_URL=...
-4. Run: bun db:push
-```
-
-### ❌ Error: "Location ID not found"
-
-```bash
-Solution:
-1. Run: npm run verify:location-id
-2. Copy output
-3. Add to .env: SHOPIFY_LOCATION_ID=...
-4. Restart server
-```
-
-### ❌ Error: "Rate limit exceeded"
-
-```bash
-Solution:
-1. Lower SYNC_BATCH_SIZE (50 → 25)
-2. Lower SYNC_CONCURRENCY (5 → 3)
-3. Increase MAX_RETRIES: 3 → 5
-4. Check Shopify API usage: Admin → Analytics → APIs
-```
-
-### ✅ Validation Checklist
-
-```bash
-# Before deploying to production:
-
-npm run verify:shopify
-# ✅ All Shopify credentials valid
-
-npm run verify:supplier
-# ✅ Supplier API (mock or real) working
-
-npm run verify:database
-# ✅ Neon connection successful
-
-npm run test
-# ✅ All tests passing
-
-npm run build
-# ✅ Both frontend & backend compile
-
-# Then:
-git push origin main
-# → Vercel auto-deploys
-```
-
----
-
-## Summary
-
-✅ **Environment files** structured and documented  
-✅ **All required variables** explained with examples  
-✅ **Defaults** set and overrideable  
-✅ **Validation** scripts ready  
-✅ **Deployment** configuration clear  
-
----
-
-## İlgili Dökümanlar
-
-| Döküman | İçerik |
-|---------|--------|
-| `06-environment-setup.md` | **Adım adım kurulum rehberi** - Neon, Shopify, Better Auth |
-| `07-troubleshooting.md` | **Hata çözümleri** - Yaşanan sorunlar ve çözümleri |
-
----
-
-🚀 **Ready to code!** Environment sorunları için `07-troubleshooting.md` dosyasına bakın.
+**Önemli:** `NEXT_PUBLIC_SERVER_URL` gibi değişkenlere artık ihtiyaç yoktur, Next.js API Routes aynı domain üzerinde çalışır.

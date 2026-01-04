@@ -16,3 +16,8 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ## [x] Track: Documentation & Architecture Alignment
 *Link: [./conductor/tracks/docs_alignment_20260104/](./conductor/tracks/docs_alignment_20260104/)*
+
+---
+
+## [ ] Track: Improve Data Quality (Parsing), Fix Product Listing Source, and Repair Pricing Rule Deletion.
+*Link: [./conductor/tracks/data_quality_pricing_20260104/](./conductor/tracks/data_quality_pricing_20260104/)*

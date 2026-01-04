@@ -1,170 +1,82 @@
 # 07 - Troubleshooting Guide
 
-## 📋 İçindekiler
+## 📋 Sık Karşılaşılan Sorunlar
 
-1. [Database Hataları](#database-hataları)
-2. [Better Auth Hataları](#better-auth-hataları)
-3. [Shopify API Hataları](#shopify-api-hataları)
-4. [Port ve Bağlantı Hataları](#port-ve-bağlantı-hataları)
-5. [Build ve TypeScript Hataları](#build-ve-typescript-hataları)
-6. [Yaşanan Sorunlar ve Çözümleri](#yaşanan-sorunlar-ve-çözümleri)
-
----
-
-## Database Hataları
-
-### ❌ NeonDbError: Unable to connect
-
-**Hata Mesajı:**
-```
-NeonDbError: Error connecting to database: Unable to connect. Is the computer able to access the url?
-path: "https://localhost/sql"
-code: "ConnectionRefused"
-```
-
-**Sebep:** 
-`.env` dosyasında `DATABASE_URL` yanlış konfigüre edilmiş. Yerel PostgreSQL adresi kullanılmış ama proje Neon Serverless adapter kullanıyor.
-
-**Çözüm:**
-
-1. https://console.neon.tech adresinden gerçek connection string alın
-2. `.env` dosyasını düzeltin:
-
-```bash
-# YANLIŞ:
-DATABASE_URL=postgresql://user:password@localhost:5432/ruzgarlastik
-
-# DOĞRU:
-DATABASE_URL=postgresql://neondb_owner:xxxx@ep-xxx.eu-central-1.aws.neon.tech/neondb?sslmode=require
-```
-
----
-
-### ❌ relation "user" does not exist
-
-**Hata Mesajı:**
-```
-error: relation "user" does not exist
-```
-
-**Sebep:** 
-Database tabloları oluşturulmamış (migration yapılmamış).
-
-**Çözüm:**
-
-```bash
-# Schema'yı database'e push et:
-bun db:push
-```
-
----
-
-### ❌ relation "fetch_jobs" does not exist
-
-**Hata Mesajı:**
-```
-Failed query: select ... from "fetch_jobs"
-```
-
-**Sebep:** 
-Yeni eklenen `supplier.ts` schema'sındaki tablolar database'e push edilmemiş.
-
-**Çözüm:**
-
-```bash
-bun db:push
-```
-
----
-
-### ❌ .env Dosyası Kaybolmuş/Değişmiş
-
-**Belirtiler:**
-- Login 500 hatası veriyor
-- Database bağlantı hatası
-
-**Çözüm:**
-`apps/web/.env.local` dosyasının varlığını ve içeriğini kontrol edin.
-
----
-
-## Better Auth Hataları
-
-### ❌ 500 Internal Server Error (Login)
-
-**Çözüm:**
-
-```bash
-# 1. Database bağlantısını kontrol et
-bun db:push
-
-# 2. Secret'ın varlığını kontrol et
-grep "BETTER_AUTH_SECRET" apps/web/.env.local
-```
-
----
-
-## Port ve Bağlantı Hataları
-
-### ❌ EADDRINUSE: Port 3000
-
-**Hata Mesajı:**
-```
-error: Failed to start server. Is port 3000 in use?
-```
-
-**Çözüm (Windows):**
-
-```powershell
-Stop-Process -Name "bun" -Force -ErrorAction SilentlyContinue
-Stop-Process -Name "node" -Force -ErrorAction SilentlyContinue
-```
+1. [Vercel Build Hataları](#vercel-build-hataları)
+2. [Parsing Sorunları (Invalid Ürünler)](#parsing-sorunları)
+3. [Database Bağlantı Sorunları](#database-bağlantı-sorunları)
+4. [Sync Hataları](#sync-hataları)
 
 ---
 
 ## Vercel Build Hataları
 
-### ❌ Build Failed: Lockfile Mismatch
+### ❌ Error: `lockfile had changes, but lockfile is frozen`
 
-**Hata Mesajı:**
-```
-error: lockfile had changes, but lockfile is frozen
-```
-
+**Sebep:** `bun.lockb` dosyası ile `package.json` uyumsuz.
 **Çözüm:**
-Vercel projesinde `vercel.json` kullanıyoruz ve `installCommand: "bun install"` olarak ayarlandı (frozen lockfile kapalı). Eğer hala hata alıyorsanız lokalde `bun install` çalıştırıp `bun.lockb` dosyasını commit edin.
+1. Lokalde `bun install` çalıştırın.
+2. `bun.lockb` dosyasını commitleyip pushlayın.
+3. Vercel ayarlarında "Install Command" olarak `bun install` (frozen lockfile olmadan) kullanın.
 
-### ❌ 404 on API Routes (Production)
+### ❌ Type Errors (TS2339, TS2304...)
 
-**Belirtiler:**
-API routeları çalışmıyor, sayfa yenileyince 404.
-
+**Sebep:** TypeScript tip tanımları eksik veya uyumsuz.
 **Çözüm:**
-Vercel projesinde "Framework Preset" olarak **Next.js** seçili olduğundan emin olun. `vercel.json` içinde `framework: "nextjs"` ayarı bu yüzden vardır.
+Acil durumlarda `apps/web/next.config.ts` dosyasına şu ayarı ekleyebilirsiniz (ama önerilmez, asıl çözüm tipleri düzeltmektir):
 
----
-
-## Hızlı Tanı Komutları
-
-```powershell
-# 1. Sistemi başlat
-bun dev
-
-# 2. Shopify bağlantısını test et (API route üzerinden)
-# (Tarayıcıda) http://localhost:3000/api/shopify-test
-
-# 3. .env kontrolü
-Test-Path "apps/web/.env.local"
+```typescript
+typescript: {
+  ignoreBuildErrors: true,
+},
+eslint: {
+  ignoreDuringBuilds: true,
+}
 ```
 
 ---
 
-## Yardım İçin
+## Parsing Sorunları
 
-Eğer bu rehberde çözüm bulamadıysanız:
+### ❌ Ürün "Invalid" Olarak Görünüyor
 
-1. `docs/` klasöründeki diğer dökümanlara bakın
-2. Server loglarını detaylı inceleyin
-3. GitHub Issues'a bakın
-4. Stack trace'i tam olarak paylaşın
+**Sebep:** `TitleParserService` ürün başlığından gerekli özellikleri (örneğin Lastik için Ebat) çıkaramadı.
 
+**Debugging Adımları:**
+1. Dashboard'da **"Hatalı (Invalid)"** filtresini seçin.
+2. Hatalı ürüne tıklayıp **Drawer**'ı açın.
+3. **Parsing** sekmesine bakın. Hangi alanın eksik olduğu (kırmızı çarpı ile) gösterilir.
+   *   Örn: `Width: ❌ (Genişlik bulunamadı)`
+4. Bu başlığı not alıp `TitleParserService.ts` içindeki regex/mantığı güncelleyin.
+5. Dashboard'dan **"Verileri Yeniden İşle"** butonuna basarak tekrar test edin.
+
+---
+
+## Database Bağlantı Sorunları
+
+### ❌ NeonDbError: ConnectionRefused
+
+**Sebep:** `.env` dosyasında `localhost` kullanılmış olabilir.
+**Çözüm:** Neon, cloud-native bir veritabanıdır. Her zaman `postgres://...neon.tech/...` formatındaki URL'i kullanmalısınız.
+
+### ❌ Relation "xyz" does not exist
+
+**Sebep:** Migration yapılmamış.
+**Çözüm:** `bun db:push` komutunu çalıştırın.
+
+---
+
+## Sync Hataları
+
+### ❌ Shopify API: Rate Limit Exceeded
+
+**Sebep:** Çok fazla ürün çok hızlı gönderiliyor.
+**Çözüm:**
+1. `apps/web/.env.local` içinde `SYNC_BATCH_SIZE` değerini düşürün (örn: 25).
+2. `SYNC_CONCURRENCY` değerini düşürün (örn: 3).
+3. Backend otomatik olarak `Retry-After` header'ına uyup bekleyecektir (kodlandı).
+
+### ❌ Metafield Type Mismatch
+
+**Sebep:** Shopify'daki tanım `integer` ama biz `string` veya `float` gönderiyoruz.
+**Çözüm:** `sync.ts` router'ı içinde `coerceMetafieldValue` mantığı vardır. Veri tabanındaki değerin doğru tipe dönüştürüldüğünden emin olun.

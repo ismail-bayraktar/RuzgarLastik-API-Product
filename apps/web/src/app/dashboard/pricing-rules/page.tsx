@@ -3,7 +3,7 @@ import { useState } from "react";
 import { trpc } from "@/utils/trpc";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Loader2, Sparkles, X } from "lucide-react";
+import { Plus, Loader2, Sparkles, X, Trash2 } from "lucide-react";
 import {
 	Sheet,
 	SheetContent,
@@ -27,7 +27,7 @@ export default function PricingRulesPage() {
 	
 	const createRuleMutation = useMutation(trpc.priceRules.create.mutationOptions({
 		onSuccess: () => {
-			toast.success("Fiyat kuralı oluşturuldu!");
+			toast.success("Fiyat kurali olusturuldu!");
 			setSheetOpen(false);
 			resetForm();
 			priceRules.refetch();
@@ -37,15 +37,39 @@ export default function PricingRulesPage() {
 		},
 	}));
 
+	const deleteRuleMutation = useMutation({
+		...(trpc.priceRules.delete.mutationOptions() as any),
+		onSuccess: () => {
+			toast.success("Kural silindi");
+			priceRules.refetch();
+		},
+		onError: (error: any) => {
+			toast.error(`Silme hatasi: ${error.message}`);
+		}
+	});
+
 	const seedDefaultsMutation = useMutation(trpc.priceRules.seedDefaults.mutationOptions({
 		onSuccess: () => {
-			toast.success("Varsayılan kurallar oluşturuldu!");
+			toast.success("Varsayilan kurallar olusturuldu!");
 			priceRules.refetch();
 		},
 		onError: (error) => {
 			toast.error(`Hata: ${error.message}`);
 		},
 	}));
+
+	const handleDelete = (id: number) => {
+		toast("Kurali silmek istediginize emin misiniz?", {
+			action: {
+				label: "Sil",
+				onClick: () => (deleteRuleMutation.mutate as any)({ id }),
+			},
+			cancel: {
+				label: "Vazgec",
+				onClick: () => {},
+			},
+		});
+	};
 
 	const resetForm = () => {
 		setFormData({
@@ -127,9 +151,23 @@ export default function PricingRulesPage() {
 												{" | "}Oncelik: {rule.priority}
 											</p>
 										</div>
-										<span className={`text-xs px-2 py-1 rounded ${rule.active ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"}`}>
-											{rule.active ? "Aktif" : "Pasif"}
-										</span>
+										<div className="flex items-center gap-2">
+											<span className={`text-xs px-2 py-1 rounded ${rule.active ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"}`}>
+												{rule.active ? "Aktif" : "Pasif"}
+											</span>
+											<button 
+												onClick={() => handleDelete(rule.id)}
+												disabled={deleteRuleMutation.isPending}
+												className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50"
+												title="Kurali Sil"
+											>
+												{deleteRuleMutation.isPending && (deleteRuleMutation.variables as any)?.id === rule.id ? (
+													<Loader2 className="h-4 w-4 animate-spin" />
+												) : (
+													<Trash2 className="h-4 w-4" />
+												)}
+											</button>
+										</div>
 									</div>
 								</div>
 							))}

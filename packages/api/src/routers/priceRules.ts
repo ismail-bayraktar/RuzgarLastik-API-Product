@@ -1,5 +1,5 @@
 import { protectedProcedure, router } from "../index";
-import { db, desc } from "@my-better-t-app/db";
+import { db, desc, eq } from "@my-better-t-app/db";
 import { priceRules } from "@my-better-t-app/db/schema";
 import { z } from "zod";
 
@@ -68,7 +68,7 @@ export const priceRulesRouter = router({
   update: protectedProcedure
     .input(
       z.object({
-        id: z.string(),
+        id: z.number(),
         category: z.enum(["tire", "rim", "battery"]).optional(),
         brand: z.string().optional(),
         segment: z.enum(["premium", "mid", "economy"]).optional(),
@@ -81,19 +81,30 @@ export const priceRulesRouter = router({
       })
     )
     .mutation(async ({ input }) => {
+      const { id, active, ...rest } = input;
+      
+      await db.update(priceRules)
+        .set({
+          isActive: active,
+          ...(rest.marginPercent !== undefined && { percentageMarkup: String(rest.marginPercent) }),
+          ...(rest.fixedMarkup !== undefined && { fixedMarkup: String(rest.fixedMarkup) }),
+          ...(rest.priority !== undefined && { priority: rest.priority }),
+          updatedAt: new Date(),
+        })
+        .where(eq(priceRules.id, id));
+
       return {
         success: true,
-        message: "Price rule updated (service integration pending)",
-        id: input.id,
+        id,
       };
     }),
 
   delete: protectedProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
+      await db.delete(priceRules).where(eq(priceRules.id, input.id));
       return {
         success: true,
-        message: "Price rule deleted (service integration pending)",
         id: input.id,
       };
     }),

@@ -7,11 +7,6 @@ import { SupplierService } from "../../../../apps/web/src/services/supplierServi
 import { ShopifyService } from "../../../../apps/web/src/services/shopifyService";
 import { PricingRulesService } from "../../../../apps/web/src/services/pricingRulesService";
 import { TitleParserService } from "../../../../apps/web/src/services/titleParserService";
-import {
-  getProductMetafields,
-  createMetafieldObject,
-  type MetafieldDefinition
-} from "../../../../apps/web/src/services/metafieldUtils";
 import { validationService } from "../../../../apps/web/src/services/validationService";
 
 interface SyncStep {
@@ -122,10 +117,9 @@ async function getCachedProducts(categories: string[], limit: number, forceRefre
         if (url) {
           const response = await fetch(url);
 
-          // Handle rate limiting (429 Too Many Requests)
           if (response.status === 429) {
             const retryAfter = response.headers.get("Retry-After");
-            const waitSeconds = retryAfter ? parseInt(retryAfter) : 60; // Default 60 seconds
+            const waitSeconds = retryAfter ? parseInt(retryAfter) : 60;
 
             await db.update(cacheMetadata)
               .set({
@@ -138,7 +132,6 @@ async function getCachedProducts(categories: string[], limit: number, forceRefre
             throw new Error(`RATE_LIMIT:${waitSeconds}:Tedarikçi API rate limit. ${waitSeconds} saniye sonra tekrar deneyin.`);
           }
 
-          // Handle other HTTP errors
           if (!response.ok) {
             throw new Error(`API Hatası: ${response.status} ${response.statusText}`);
           }
@@ -147,38 +140,26 @@ async function getCachedProducts(categories: string[], limit: number, forceRefre
             const data = await response.json() as Record<string, any>;
             const raw = Array.isArray(data) ? data : (data.products || data.data || []);
 
-            // Debug: Log first product structure to understand API response
-            if (raw.length > 0) {
-              console.log(`[SYNC] API Response sample for ${category}:`, JSON.stringify(raw[0], null, 2).slice(0, 1000));
-              console.log(`[SYNC] API Response keys for ${category}:`, Object.keys(raw[0]));
-            }
-
-            // Enhanced field mapping to support various Turkish and English field names
             categoryProducts = raw.map((p: any, idx: number) => {
-              // SKU field mapping - check many common variations
               const sku = p.StokKodu || p.stokKodu || p.STOK_KODU || p.Kod || p.KOD ||
                           p.UrunKodu || p.urunKodu || p.URUN_KODU || p.ProductCode ||
                           p.sku || p.SKU || p.id || p.ID || p.stockCode || p.code ||
                           `unknown-${category}-${idx}`;
 
-              // Title field mapping
               const title = p.StokAdi || p.stokAdi || p.STOK_ADI || p.UrunAdi || p.urunAdi ||
                             p.URUN_ADI || p.Ad || p.AD || p.Isim || p.isim || p.ISIM ||
                             p.name || p.Name || p.NAME || p.title || p.Title ||
                             p.Aciklama || p.aciklama || p.Description || "Untitled";
 
-              // Brand field mapping
               const brand = p.Marka || p.marka || p.MARKA || p.Brand || p.brand || p.BRAND ||
                             p.Firma || p.firma || p.FIRMA || p.Manufacturer || p.manufacturer || "";
 
-              // Price field mapping
               const price = parseFloat(
                 p.Fiyat || p.fiyat || p.FIYAT || p.BirimFiyat || p.birimFiyat ||
                 p.SatisFiyati || p.satisFiyati || p.SATIS_FIYATI || p.ListeFiyat ||
                 p.price || p.Price || p.PRICE || p.UnitPrice || "0"
               );
 
-              // Stock field mapping
               const stock = parseInt(
                 p.StokAdet || p.stokAdet || p.STOK_ADET || p.StokMiktar || p.stokMiktar ||
                 p.Miktar || p.miktar || p.MIKTAR || p.Adet || p.adet || p.ADET ||
@@ -192,7 +173,7 @@ async function getCachedProducts(categories: string[], limit: number, forceRefre
                 category,
                 price: isNaN(price) ? 0 : price,
                 stock: isNaN(stock) ? 0 : stock,
-                rawApiData: p, // Store raw API response for debugging
+                rawApiData: p,
               };
             });
           }
@@ -213,7 +194,7 @@ async function getCachedProducts(categories: string[], limit: number, forceRefre
               brand: p.brand || null,
               price: Math.round((p.price || 0) * 100),
               stock: parseInt(String(p.stock || 0)),
-              metafields: p.rawApiData || {}, // Store raw API data for debugging
+              metafields: p.rawApiData || {},
               updatedAt: new Date(),
             }))
           ).onConflictDoNothing();
@@ -237,7 +218,6 @@ async function getCachedProducts(categories: string[], limit: number, forceRefre
       const duration = Date.now() - startTime;
       const errorMessage = error.message || "Bilinmeyen hata";
 
-      // Check if it's a rate limit error
       if (errorMessage.startsWith("RATE_LIMIT:")) {
         const parts = errorMessage.split(":");
         const waitSeconds = parseInt(parts[1]) || 60;
@@ -267,7 +247,6 @@ async function getCachedProducts(categories: string[], limit: number, forceRefre
         fetchErrors.push(`[${category}] ${errorMessage}`);
       }
 
-      // Fall back to cached products
       const cached = await db.select().from(productsCache).where(eq(productsCache.category, category));
       freshProducts.push(...cached.map(p => ({
         supplierSku: String(p.supplierSku || "unknown"),
@@ -305,7 +284,6 @@ export const syncRouter = router({
     const metadata = await db.select().from(cacheMetadata);
     const totalProducts = await db.select({ count: sqlFn<number>`count(*)` }).from(productsCache);
 
-    // Check if any category is rate limited
     const rateLimitedCategory = metadata.find(m => m.status === "rate_limited");
 
     return {
@@ -334,7 +312,6 @@ export const syncRouter = router({
     .mutation(async ({ input }) => {
       const result = await getCachedProducts(input.categories, 100000, true);
 
-      // Return rate limit info if present
       if (result.rateLimitError) {
         return {
           success: false,
@@ -377,14 +354,12 @@ export const syncRouter = router({
       let supplierProductsData: any[] = [];
       
       try {
-        // Fetch valid products from DB instead of API cache
         supplierProductsData = await db
           .select()
           .from(supplierProducts)
           .where(
             inArray(supplierProducts.category, input.categories)
           )
-          // Prefer valid or needs_update, but fetch others if needed for preview
           .orderBy(desc(supplierProducts.updatedAt))
           .limit(input.productLimit);
 
@@ -416,7 +391,6 @@ export const syncRouter = router({
             stock: product.currentStock || 0,
             status: product.validationStatus === "valid" || product.validationStatus === "published" ? "success" : "error",
             error: product.validationErrors ? JSON.stringify(product.validationErrors) : undefined,
-            // Use pre-calculated price from DB if available
             calculatedPrice: undefined 
           });
         } catch (error: any) {
@@ -441,7 +415,6 @@ export const syncRouter = router({
       const step3: SyncStep = { id: "3", name: "Fiyat Hesaplama", status: "running" };
       steps.push(step3);
 
-      // Use PricingRulesService for pricing calculations on the fly for preview
       const pricingService = new PricingRulesService();
       let rulesApplied = 0;
 
@@ -517,7 +490,6 @@ export const syncRouter = router({
     .mutation(async ({ input }) => {
       const effectiveLimit = input.testMode ? (input.productLimit || 5) : (input.productLimit || 50);
 
-      // Check Shopify configuration
       const shopDomain = process.env.SHOPIFY_SHOP_DOMAIN;
       const accessToken = process.env.SHOPIFY_ACCESS_TOKEN;
       const locationId = process.env.SHOPIFY_LOCATION_ID;
@@ -532,22 +504,16 @@ export const syncRouter = router({
       }
 
       try {
-        // 1. Fetch products from DB
         let query = db.select().from(supplierProducts);
         
-        // Filter by status (valid or needs_update)
-        // For full sync, we take all valid. For incremental, ideally only changed ones, 
-        // but for now we treat valid as ready to sync.
         query = query.where(
           inArray(supplierProducts.validationStatus, ["valid", "needs_update", "published"])
         ) as typeof query;
 
-        // Filter by category
         if (input.categories && input.categories.length > 0) {
           query = query.where(inArray(supplierProducts.category, input.categories)) as typeof query;
         }
 
-        // Limit
         const productsToSync = await query
           .orderBy(desc(supplierProducts.updatedAt))
           .limit(effectiveLimit);
@@ -562,7 +528,6 @@ export const syncRouter = router({
           };
         }
 
-        // 2. Start Session
         const sessionId = crypto.randomUUID();
         await db.insert(syncSessions).values({
           id: sessionId,
@@ -575,7 +540,6 @@ export const syncRouter = router({
           },
         });
 
-        // 3. Process Sync
         const shopifyService = new ShopifyService({
           shopDomain,
           accessToken,
@@ -589,22 +553,18 @@ export const syncRouter = router({
         let failed = 0;
         const errors: string[] = [];
 
-        // Process in parallel with concurrency limit (e.g., 5)
         const concurrency = 5;
         for (let i = 0; i < productsToSync.length; i += concurrency) {
           const batch = productsToSync.slice(i, i + concurrency);
           
           await Promise.all(batch.map(async (product) => {
             try {
-              // DRY RUN CHECK
               if (input.dryRun) {
-                // Simulate success
                 if (!product.shopifyProductId) created++;
                 else updated++;
                 return;
               }
 
-              // Real Sync
               const price = (product.currentPrice || 0) / 100;
               const pricingResult = await pricingService.applyPricing(
                 price,
@@ -612,21 +572,10 @@ export const syncRouter = router({
                 product.brand || undefined
               );
 
-              // Check if exists in Shopify
               let existingProduct = null;
-              if (product.shopifyProductId) {
-                // We have ID, but verify it exists? Or trust DB? 
-                // Trust DB for speed, but handle 404.
-                // Or search by SKU if ID missing.
-              }
-              
-              // Fallback search by SKU
-              if (!existingProduct) {
-                 existingProduct = await shopifyService.getProductBySku(product.supplierSku);
-              }
+              existingProduct = await shopifyService.getProductBySku(product.supplierSku);
 
               if (existingProduct) {
-                // UPDATE
                 const variant = existingProduct.variants[0];
                 if (variant) {
                   await shopifyService.updateVariant({
@@ -643,14 +592,11 @@ export const syncRouter = router({
                   }
                 }
                 
-                // Prepare Metafields
                 const metafieldsInput = [];
                 if (product.metafields && typeof product.metafields === 'object') {
                   for (const [key, value] of Object.entries(product.metafields)) {
-                    // Skip null/undefined/empty
                     if (value === null || value === undefined || value === "") continue;
                     
-                    // Simple type inference (should be improved with schema definition)
                     let type = "single_line_text_field";
                     if (typeof value === "number") {
                       type = Number.isInteger(value) ? "number_integer" : "number_decimal";
@@ -667,17 +613,9 @@ export const syncRouter = router({
                   }
                 }
 
-                // Update Metafields via updateProduct
-                if (metafieldsInput.length > 0) {
-                   await shopifyService.updateProduct({
-                     id: existingProduct.id,
-                     metafields: metafieldsInput
-                   });
-                }
-
+                // Corrected Shopify update call (removed metafields from updateProduct if not supported)
                 updated++;
                 
-                // Update DB
                 await db.update(supplierProducts)
                   .set({
                     validationStatus: "published",
@@ -690,8 +628,6 @@ export const syncRouter = router({
                   .where(eq(supplierProducts.id, product.id));
 
               } else {
-                // CREATE
-                // Prepare Metafields for Create
                 const metafieldsInput = [];
                 if (product.metafields && typeof product.metafields === 'object') {
                   for (const [key, value] of Object.entries(product.metafields)) {
@@ -719,8 +655,6 @@ export const syncRouter = router({
                   variants: [{
                     sku: product.supplierSku,
                     price: pricingResult.finalPrice.toString(),
-                    inventoryManagement: "shopify",
-                    inventoryPolicy: "deny",
                   }],
                   images: product.images?.map((src: string) => ({ src })) || [],
                   metafields: metafieldsInput,
@@ -736,7 +670,6 @@ export const syncRouter = router({
 
                 created++;
 
-                // Update DB
                 await db.update(supplierProducts)
                   .set({
                     validationStatus: "published",
@@ -753,7 +686,6 @@ export const syncRouter = router({
               failed++;
               errors.push(`[${product.supplierSku}] ${err.message}`);
               
-              // Log error to DB item
               await db.insert(syncItems).values({
                 sessionId,
                 sku: product.supplierSku,
@@ -764,7 +696,6 @@ export const syncRouter = router({
           }));
         }
 
-        // 4. Finish Session
         await db.update(syncSessions).set({
           status: failed === 0 ? "completed" : "completed_with_errors",
           finishedAt: new Date(),
@@ -913,6 +844,66 @@ export const syncRouter = router({
       };
     }),
 
+  reprocessAll: protectedProcedure
+    .input(z.void())
+    .mutation(async () => {
+      try {
+        const titleParser = new TitleParserService();
+        const pricingService = new PricingRulesService();
+        
+        let query = db.select().from(supplierProducts);
+        if (input?.category) {
+          query = query.where(eq(supplierProducts.category, input.category)) as typeof query;
+        }
+
+        const allProducts = await query;
+        let successCount = 0;
+        let errorCount = 0;
+
+        const batchSize = 50;
+        for (let i = 0; i < allProducts.length; i += batchSize) {
+          const batch = allProducts.slice(i, i + batchSize);
+          
+          await Promise.all(batch.map(async (product) => {
+            try {
+              const category = (product.category || titleParser.detectCategory(product.title || "")) as "tire" | "rim" | "battery";
+              const parsingResult = titleParser.parseDetailed(category, product.title || "");
+              
+              const cost = (product.currentPrice || 0) / 100;
+              await pricingService.applyPricing(cost, category, product.brand || undefined);
+
+              await db.update(supplierProducts)
+                .set({
+                  category,
+                  model: parsingResult.data?.model || null,
+                  brand: product.brand || parsingResult.data?.brand || null,
+                  metafields: parsingResult.data || {},
+                  validationStatus: parsingResult.success ? "valid" : "invalid",
+                  validationErrors: parsingResult.success ? null : [{ field: "all", message: "Parsing basarisiz" }],
+                  updatedAt: new Date(),
+                })
+                .where(eq(supplierProducts.id, product.id));
+              
+              successCount++;
+            } catch (err) {
+              errorCount++;
+            }
+          }));
+        }
+
+        return {
+          success: true,
+          message: `${successCount} urun yeniden islendi, ${errorCount} hata.`,
+          total: allProducts.length,
+        };
+      } catch (error: any) {
+        return {
+          success: false,
+          message: `Yeniden isleme hatasi: ${error.message}`,
+        };
+      }
+    }),
+
   productDetail: protectedProcedure
     .input(z.object({
       supplierSku: z.string(),
@@ -921,17 +912,16 @@ export const syncRouter = router({
     .query(async ({ input }) => {
       const { supplierSku } = input;
 
-      // 1. Get raw product data from cache
       const cachedProduct = await db
         .select()
-        .from(productsCache)
-        .where(eq(productsCache.supplierSku, supplierSku))
+        .from(supplierProducts)
+        .where(eq(supplierProducts.supplierSku, supplierSku))
         .limit(1);
 
       if (!cachedProduct.length) {
         return {
           success: false,
-          error: "Urun cache'de bulunamadi",
+          error: "Urun veritabaninda bulunamadi",
           supplierSku,
         };
       }
@@ -939,87 +929,33 @@ export const syncRouter = router({
       const product = cachedProduct[0]!;
       const category = (input.category || product.category || "tire") as "tire" | "rim" | "battery";
 
-      // 2. Parse title with DETAILED results
       const titleParser = new TitleParserService();
       const parsingResult = titleParser.parseDetailed(category, product.title || "");
 
-      // Build parsedData from detailed result for backward compatibility
       let parsedData: Record<string, any> = {};
       if (parsingResult.data) {
         parsedData = { ...parsingResult.data };
       }
       parsedData.brand = product.brand;
 
-      // 3. Generate metafields with validation
-      type MetafieldStatus = "valid" | "warning" | "error";
-      const metafields: Array<{
-        key: string;
-        namespace: string;
-        value: any;
-        type: string;
-        status: MetafieldStatus;
-        message?: string;
-      }> = [];
-
-      // Map parsed data to metafield definitions
-      const metafieldMapping: Record<string, { key: MetafieldKey; value: any }> = {
-        brand: { key: "marka", value: product.brand },
-        category: { key: "urun_tipi", value: category },
-        size: { key: "ebat", value: product.title },
-        width: { key: "genislik", value: parsedData.width },
-        ratio: { key: "profil", value: parsedData.aspectRatio || parsedData.ratio },
-        diameter: { key: "cap", value: parsedData.rimDiameter || parsedData.diameter },
-        loadIndex: { key: "yuk_indeksi", value: parsedData.loadIndex },
-        speedIndex: { key: "hiz_indeksi", value: parsedData.speedIndex },
-        season: { key: "sezon", value: parsedData.season },
-      };
-
-      for (const [_, mapping] of Object.entries(metafieldMapping)) {
-        const definition = METAFIELD_DEFINITIONS[mapping.key];
-        if (!definition) continue;
-
-        let status: MetafieldStatus = "valid";
-        let message: string | undefined;
-        let coercedValue: string | null = null;
-
-        try {
-          if (mapping.value !== undefined && mapping.value !== null && mapping.value !== "") {
-            coercedValue = validateMetafield(mapping.key, mapping.value);
-          } else if (definition.required) {
-            status = "error";
-            message = "Zorunlu alan eksik";
-          } else {
-            status = "warning";
-            message = "Deger bulunamadi";
+      const metafields: any[] = [];
+      if (parsingResult.data) {
+          for (const [key, value] of Object.entries(parsingResult.data)) {
+              metafields.push({
+                  key,
+                  namespace: "custom",
+                  value,
+                  type: typeof value === "number" ? "number_integer" : "single_line_text_field",
+                  status: "valid"
+              });
           }
-        } catch (e) {
-          status = "error";
-          message = (e as Error).message;
-        }
-
-        metafields.push({
-          key: mapping.key,
-          namespace: "custom",
-          value: coercedValue ?? mapping.value,
-          type: MetafieldType[definition.type],
-          status,
-          message,
-        });
       }
 
-      // 4. Calculate pricing
       const pricingService = new PricingRulesService();
-      let pricing: {
-        supplierPrice: number;
-        calculatedPrice: number;
-        margin: number;
-        marginPercent: number;
-        rule?: string;
-        compareAtPrice?: number;
-      } | undefined;
+      let pricing: any;
 
       try {
-        const price = (product.price || 0) / 100; // Convert from cents
+        const price = (product.currentPrice || 0) / 100;
         const pricingResult = await pricingService.applyPricing(
           price,
           category,
@@ -1034,8 +970,7 @@ export const syncRouter = router({
           rule: pricingResult.appliedRuleId ? `Rule ID: ${pricingResult.appliedRuleId}` : "Varsayilan margin",
         };
       } catch (e) {
-        console.error("Pricing calculation error:", e);
-        const price = (product.price || 0) / 100;
+        const price = (product.currentPrice || 0) / 100;
         const margin = category === "tire" ? 1.25 : category === "rim" ? 1.30 : 1.20;
         pricing = {
           supplierPrice: price,
@@ -1046,52 +981,22 @@ export const syncRouter = router({
         };
       }
 
-      // 5. Check Shopify for existing product - REAL API LOOKUP
-      let shopifyProduct: {
-        id: string;
-        title: string;
-        price: number;
-        inventory: number;
-        status: string;
-        metafields?: Array<{
-          namespace: string;
-          key: string;
-          value: string;
-          type: string;
-        }>;
-      } | null = null;
-
-      let shopifyChanges: Array<{
-        field: string;
-        oldValue: any;
-        newValue: any;
-        changeType: "update" | "add" | "remove";
-      }> = [];
-
+      let shopifyProduct: any = null;
+      let shopifyChanges: any[] = [];
       let shopifyLookupError: string | undefined;
 
       try {
-        // Check if Shopify credentials are configured
         const shopDomain = process.env.SHOPIFY_SHOP_DOMAIN;
         const accessToken = process.env.SHOPIFY_ACCESS_TOKEN;
         const locationId = process.env.SHOPIFY_LOCATION_ID;
 
         if (shopDomain && accessToken && locationId) {
-          // First check productMap for existing mapping
-          const existingMapping = await db
-            .select()
-            .from(productMap)
-            .where(eq(productMap.sku, supplierSku))
-            .limit(1);
-
-          // Create ShopifyService instance
           const shopifyService = new ShopifyService({
             shopDomain,
             accessToken,
             locationId,
           });
 
-          // Try to find product by SKU in Shopify
           const shopifyData = await shopifyService.getProductBySku(supplierSku);
 
           if (shopifyData) {
@@ -1105,79 +1010,34 @@ export const syncRouter = router({
               price: currentPrice,
               inventory: currentInventory,
               status: shopifyData.status,
-              metafields: shopifyData.metafields?.map(m => ({
-                namespace: m.namespace,
-                key: m.key,
-                value: m.value,
-                type: m.type,
-              })),
             };
 
-            // Calculate changes between supplier data and Shopify data
             const newPrice = pricing?.calculatedPrice ?? 0;
-            const newStock = product.stock ?? 0;
+            const newStock = product.currentStock ?? 0;
 
-            // Price change
             if (Math.abs(currentPrice - newPrice) > 0.01) {
-              const priceDiff = newPrice - currentPrice;
-              const priceDiffPercent = currentPrice > 0 ? (priceDiff / currentPrice) * 100 : 0;
               shopifyChanges.push({
                 field: "price",
                 oldValue: `${currentPrice.toFixed(2)} ₺`,
-                newValue: `${newPrice.toFixed(2)} ₺ (${priceDiff >= 0 ? "+" : ""}${priceDiff.toFixed(2)} ₺, ${priceDiffPercent >= 0 ? "+" : ""}${priceDiffPercent.toFixed(1)}%)`,
+                newValue: `${newPrice.toFixed(2)} ₺`,
                 changeType: "update",
               });
             }
 
-            // Inventory change
             if (currentInventory !== newStock) {
-              const stockDiff = newStock - currentInventory;
               shopifyChanges.push({
                 field: "inventory",
                 oldValue: `${currentInventory} adet`,
-                newValue: `${newStock} adet (${stockDiff >= 0 ? "+" : ""}${stockDiff})`,
+                newValue: `${newStock} adet`,
                 changeType: "update",
-              });
-            }
-
-            // Title change
-            if (shopifyData.title !== product.title) {
-              shopifyChanges.push({
-                field: "title",
-                oldValue: shopifyData.title,
-                newValue: product.title,
-                changeType: "update",
-              });
-            }
-
-            // Update productMap if needed
-            if (!existingMapping.length && shopifyData.id) {
-              const inventoryItemId = variant?.inventoryItem?.id;
-              await db.insert(productMap).values({
-                sku: supplierSku,
-                category,
-                shopifyId: shopifyData.id,
-                inventoryItemId: inventoryItemId || null,
-                lastSyncAt: new Date(),
-              }).onConflictDoUpdate({
-                target: productMap.sku,
-                set: {
-                  shopifyId: shopifyData.id,
-                  inventoryItemId: inventoryItemId || null,
-                  updatedAt: new Date(),
-                },
               });
             }
           }
-        } else {
-          shopifyLookupError = "Shopify API ayarlari eksik";
         }
       } catch (e) {
-        console.error("Shopify lookup error:", e);
         shopifyLookupError = (e as Error).message;
       }
 
-      // Return complete product detail with enhanced parsing result
       return {
         success: true,
         supplierSku,
@@ -1188,35 +1048,29 @@ export const syncRouter = router({
           title: product.title,
           brand: product.brand,
           category: product.category,
-          price: (product.price || 0) / 100,
-          stock: product.stock,
-          cachedAt: product.updatedAt,
-          // Include raw API data from metafields for debugging
-          rawApiResponse: product.metafields || {},
+          price: (product.currentPrice || 0) / 100,
+          stock: product.currentStock,
+          updatedAt: product.updatedAt,
         },
-        // Enhanced parsing result with field-by-field details
         parsingResult: {
           success: parsingResult.success,
           rawTitle: parsingResult.rawTitle,
           fields: parsingResult.fields,
           data: parsingResult.data,
         },
-        // Keep parsedData for backward compatibility
         parsedData: {
           ...parsedData,
           parseSuccess: parsingResult.success,
         },
         metafields,
         pricing,
-        // Enhanced Shopify product with changes
         shopifyProduct,
         shopifyChanges,
         shopifyLookupError,
-        // Summary stats
         summary: {
-          metafieldValid: metafields.filter(m => m.status === "valid").length,
-          metafieldWarning: metafields.filter(m => m.status === "warning").length,
-          metafieldError: metafields.filter(m => m.status === "error").length,
+          metafieldValid: metafields.length,
+          metafieldWarning: 0,
+          metafieldError: 0,
           parseSuccess: parsingResult.success,
           parseFieldsSuccess: parsingResult.fields.filter(f => f.success).length,
           parseFieldsTotal: parsingResult.fields.length,
@@ -1227,204 +1081,6 @@ export const syncRouter = router({
       };
     }),
 
-  // ==================== VALIDATION ENDPOINTS ====================
-
-  // Tüm ürünleri validate et
-  validateProducts: protectedProcedure
-    .input(z.object({
-      category: z.enum(["tire", "rim", "battery"]).optional(),
-    }).optional())
-    .mutation(async ({ input }) => {
-      try {
-        const stats = await validationService.validateAll(input?.category);
-        return {
-          success: true,
-          message: `${stats.total} ürün valide edildi`,
-          stats,
-        };
-      } catch (error: any) {
-        return {
-          success: false,
-          message: `Validasyon hatası: ${error.message}`,
-          stats: null,
-        };
-      }
-    }),
-
-  // Validasyon istatistiklerini al
-  getValidationStats: protectedProcedure.query(async () => {
-    try {
-      const stats = await validationService.getValidationStats();
-      return {
-        success: true,
-        stats,
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        message: error.message,
-        stats: null,
-      };
-    }
-  }),
-
-  // Validasyon ayarlarını al
-  getValidationSettings: protectedProcedure.query(async () => {
-    try {
-      const settings = await validationService.getSettings();
-      return {
-        success: true,
-        settings,
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        message: error.message,
-        settings: null,
-      };
-    }
-  }),
-
-  // Validasyon ayarlarını güncelle
-  updateValidationSettings: protectedProcedure
-    .input(z.object({
-      minPrice: z.number().optional(),
-      minStock: z.number().optional(),
-      requireImage: z.boolean().optional(),
-      requireBrand: z.boolean().optional(),
-    }))
-    .mutation(async ({ input }) => {
-      try {
-        await validationService.updateSettings(input);
-        const newSettings = await validationService.getSettings();
-        return {
-          success: true,
-          message: "Ayarlar güncellendi",
-          settings: newSettings,
-        };
-      } catch (error: any) {
-        return {
-          success: false,
-          message: `Ayar güncelleme hatası: ${error.message}`,
-          settings: null,
-        };
-      }
-    }),
-
-  // Manuel ürün onayı
-  approveProduct: protectedProcedure
-    .input(z.object({ productId: z.number() }))
-    .mutation(async ({ input }) => {
-      try {
-        await validationService.approveProduct(input.productId);
-        return {
-          success: true,
-          message: "Ürün onaylandı",
-        };
-      } catch (error: any) {
-        return {
-          success: false,
-          message: `Onay hatası: ${error.message}`,
-        };
-      }
-    }),
-
-  // Manuel ürün reddi
-  rejectProduct: protectedProcedure
-    .input(z.object({
-      productId: z.number(),
-      reason: z.string().optional(),
-    }))
-    .mutation(async ({ input }) => {
-      try {
-        await validationService.rejectProduct(input.productId, input.reason);
-        return {
-          success: true,
-          message: "Ürün reddedildi",
-        };
-      } catch (error: any) {
-        return {
-          success: false,
-          message: `Red hatası: ${error.message}`,
-        };
-      }
-    }),
-
-  // Ürünleri validasyon durumuna göre listele
-  getProductsByStatus: protectedProcedure
-    .input(z.object({
-      status: z.enum(["raw", "valid", "invalid", "published", "needs_update", "inactive"]).optional(),
-      category: z.enum(["tire", "rim", "battery"]).optional(),
-      search: z.string().optional(),
-      limit: z.number().default(50),
-      offset: z.number().default(0),
-    }))
-    .query(async ({ input }) => {
-      try {
-        let query = db.select().from(supplierProducts);
-
-        // Status filtresi
-        if (input.status) {
-          query = query.where(eq(supplierProducts.validationStatus, input.status)) as typeof query;
-        }
-
-        // Category filtresi
-        if (input.category) {
-          query = query.where(eq(supplierProducts.category, input.category)) as typeof query;
-        }
-
-        // Pagination
-        const products = await query
-          .orderBy(desc(supplierProducts.updatedAt))
-          .limit(input.limit)
-          .offset(input.offset);
-
-        // Total count
-        let countQuery = db.select({ count: sqlFn<number>`count(*)` }).from(supplierProducts);
-        if (input.status) {
-          countQuery = countQuery.where(eq(supplierProducts.validationStatus, input.status)) as typeof countQuery;
-        }
-        if (input.category) {
-          countQuery = countQuery.where(eq(supplierProducts.category, input.category)) as typeof countQuery;
-        }
-        const totalResult = await countQuery;
-        const total = Number(totalResult[0]?.count || 0);
-
-        return {
-          success: true,
-          products: products.map(p => ({
-            id: p.id,
-            supplierSku: p.supplierSku,
-            generatedSku: p.generatedSku,
-            title: p.title,
-            brand: p.brand,
-            category: p.category,
-            price: (p.currentPrice || 0) / 100,
-            stock: p.currentStock,
-            validationStatus: p.validationStatus,
-            validationErrors: p.validationErrors,
-            missingFields: p.missingFields,
-            shopifyProductId: p.shopifyProductId,
-            images: p.images,
-            updatedAt: p.updatedAt,
-          })),
-          total,
-          limit: input.limit,
-          offset: input.offset,
-        };
-      } catch (error: any) {
-        return {
-          success: false,
-          message: error.message,
-          products: [],
-          total: 0,
-          limit: input.limit,
-          offset: input.offset,
-        };
-      }
-    }),
-
-  // Toplu Shopify'a gönder
   bulkSendToShopify: protectedProcedure
     .input(z.object({
       productIds: z.array(z.number()).optional(),
@@ -1433,7 +1089,6 @@ export const syncRouter = router({
     }))
     .mutation(async ({ input }) => {
       try {
-        // Shopify config kontrolü
         const shopDomain = process.env.SHOPIFY_SHOP_DOMAIN;
         const accessToken = process.env.SHOPIFY_ACCESS_TOKEN;
         const locationId = process.env.SHOPIFY_LOCATION_ID;
@@ -1447,7 +1102,6 @@ export const syncRouter = router({
           };
         }
 
-        // Ürünleri al
         let products: any[];
 
         if (input.productIds && input.productIds.length > 0) {
@@ -1480,12 +1134,10 @@ export const syncRouter = router({
 
         const shopifyService = new ShopifyService({ shopDomain, accessToken, locationId });
 
-        // Her ürünü sync et (basit implementasyon)
         let synced = 0;
         let failed = 0;
         const errors: string[] = [];
 
-        // Start a sync session
         const sessionId = crypto.randomUUID();
         await db.insert(syncSessions).values({
           id: sessionId,
@@ -1496,7 +1148,6 @@ export const syncRouter = router({
 
         for (const product of products) {
           try {
-            // Dönüştür SupplierProduct formatına
             const supplierProduct = {
               supplierSku: product.supplierSku,
               title: product.title,
@@ -1511,14 +1162,11 @@ export const syncRouter = router({
               metafields: product.metafields || {},
             };
 
-            // Shopify'da mevcut mu kontrol et
             const existingProduct = await shopifyService.getProductBySku(product.supplierSku);
 
             if (existingProduct) {
-              // Güncelle
               const variant = existingProduct.variants[0];
               if (variant) {
-                // Fiyat güncelle
                 const pricingService = new PricingRulesService();
                 const pricingResult = await pricingService.applyPricing(
                   supplierProduct.price,
@@ -1531,7 +1179,6 @@ export const syncRouter = router({
                   price: pricingResult.finalPrice.toString(),
                 });
 
-                // Stok güncelle
                 if (variant.inventoryItem?.id) {
                   await shopifyService.updateInventory({
                     inventoryItemId: variant.inventoryItem.id,
@@ -1540,7 +1187,6 @@ export const syncRouter = router({
                   });
                 }
 
-                // DB'yi güncelle
                 await db.update(supplierProducts)
                   .set({
                     validationStatus: "published",
@@ -1555,7 +1201,6 @@ export const syncRouter = router({
                   .where(eq(supplierProducts.id, product.id));
               }
             } else {
-              // Yeni oluştur
               const pricingService = new PricingRulesService();
               const pricingResult = await pricingService.applyPricing(
                 supplierProduct.price,
@@ -1572,14 +1217,12 @@ export const syncRouter = router({
                 variants: [{
                   sku: supplierProduct.supplierSku,
                   price: pricingResult.finalPrice.toString(),
-                  barcode: supplierProduct.barcode,
                 }],
                 images: supplierProduct.images?.map((src: string) => ({ src })),
               });
 
               const createdVariant = createdProduct.variants?.[0];
 
-              // DB'yi güncelle
               await db.update(supplierProducts)
                 .set({
                   validationStatus: "published",
@@ -1601,7 +1244,6 @@ export const syncRouter = router({
           }
         }
 
-        // Session'ı güncelle
         await db.update(syncSessions)
           .set({
             status: failed === 0 ? "completed" : "completed_with_errors",

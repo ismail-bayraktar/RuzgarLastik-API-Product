@@ -224,7 +224,7 @@ export default function SyncPage() {
 
   const enrichedProduct = useCallback((): ProductDrawerData | null => {
     if (!selectedProduct) return null;
-    const detail = productDetailQuery.data;
+    const detail = productDetailQuery.data as any;
     if (!detail || !detail.success) return selectedProduct;
 
     return {
@@ -232,6 +232,7 @@ export default function SyncPage() {
       title: detail.title || selectedProduct.title,
       rawData: detail.rawData || selectedProduct.rawData,
       parsedData: detail.parsedData,
+      parsingResult: detail.parsingResult,
       metafields: detail.metafields as any,
       pricing: detail.pricing as any,
       shopifyProduct: detail.shopifyProduct as any,

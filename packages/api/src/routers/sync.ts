@@ -371,65 +371,53 @@ export const syncRouter = router({
       const errors: string[] = [];
 
       const step1Start = Date.now();
-      const step1: SyncStep = { id: "1", name: "Ürün Verisi Yükleme", status: "running" };
+      const step1: SyncStep = { id: "1", name: "Veritabanından Yükleme", status: "running" };
       steps.push(step1);
 
-      let supplierProducts: any[] = [];
-      let fromCache = false;
-      let rateLimitError: CachedProductsResult["rateLimitError"] = undefined;
-
+      let supplierProductsData: any[] = [];
+      
       try {
-        const result = await getCachedProducts(input.categories, input.productLimit, input.forceRefresh);
-        supplierProducts = result.products;
-        fromCache = result.fromCache;
-        rateLimitError = result.rateLimitError;
+        // Fetch valid products from DB instead of API cache
+        supplierProductsData = await db
+          .select()
+          .from(supplierProducts)
+          .where(
+            inArray(supplierProducts.category, input.categories)
+          )
+          // Prefer valid or needs_update, but fetch others if needed for preview
+          .orderBy(desc(supplierProducts.updatedAt))
+          .limit(input.productLimit);
 
-        // Add any fetch errors to the errors list
-        if (result.errors.length > 0) {
-          errors.push(...result.errors);
-        }
-
-        // Handle rate limit in step status
-        if (result.rateLimitError) {
-          step1.status = "error";
-          step1.duration = Date.now() - step1Start;
-          step1.message = `Rate limit: ${result.rateLimitError.message}`;
-          step1.data = {
-            productCount: supplierProducts.length,
-            fromCache: true, // Falling back to cache
-            rateLimitError: result.rateLimitError,
-          };
-        } else {
-          step1.status = "completed";
-          step1.duration = Date.now() - step1Start;
-          step1.message = fromCache
-            ? `${supplierProducts.length} ürün cache'den yüklendi`
-            : `${supplierProducts.length} ürün API'den çekildi ve cache'lendi`;
-          step1.data = { productCount: supplierProducts.length, fromCache };
-        }
+        step1.status = "completed";
+        step1.duration = Date.now() - step1Start;
+        step1.message = `${supplierProductsData.length} ürün veritabanından yüklendi`;
+        step1.data = { productCount: supplierProductsData.length, fromCache: true };
       } catch (error: any) {
         step1.status = "error";
         step1.message = error.message;
         step1.duration = Date.now() - step1Start;
-        errors.push(`Ürün yükleme hatası: ${error.message}`);
+        errors.push(`DB yükleme hatası: ${error.message}`);
       }
 
       const step2Start = Date.now();
-      const step2: SyncStep = { id: "2", name: "Ürün Verisi Ayrıştırma", status: "running" };
+      const step2: SyncStep = { id: "2", name: "Veri Hazırlığı", status: "running" };
       steps.push(step2);
 
       let parsedCount = 0;
-      for (const product of supplierProducts) {
+      for (const product of supplierProductsData) {
         try {
           parsedCount++;
           products.push({
             supplierSku: product.supplierSku,
             title: product.title,
-            brand: product.brand,
+            brand: product.brand || "",
             category: product.category,
-            price: product.price,
-            stock: product.stock,
-            status: "pending",
+            price: (product.currentPrice || 0) / 100,
+            stock: product.currentStock || 0,
+            status: product.validationStatus === "valid" || product.validationStatus === "published" ? "success" : "error",
+            error: product.validationErrors ? JSON.stringify(product.validationErrors) : undefined,
+            // Use pre-calculated price from DB if available
+            calculatedPrice: undefined 
           });
         } catch (error: any) {
           products.push({
@@ -437,23 +425,23 @@ export const syncRouter = router({
             title: product.title,
             brand: product.brand || "Bilinmiyor",
             category: product.category,
-            price: product.price,
-            stock: product.stock || 0,
+            price: (product.currentPrice || 0) / 100,
+            stock: product.currentStock || 0,
             status: "error",
-            error: `Parse hatası: ${error.message}`,
+            error: `Veri hatası: ${error.message}`,
           });
         }
       }
 
       step2.status = parsedCount > 0 ? "completed" : "error";
       step2.duration = Date.now() - step2Start;
-      step2.message = `${parsedCount}/${supplierProducts.length} ürün ayrıştırıldı`;
+      step2.message = `${parsedCount}/${supplierProductsData.length} ürün hazırlandı`;
 
       const step3Start = Date.now();
-      const step3: SyncStep = { id: "3", name: "Fiyat Kuralları Uygulama", status: "running" };
+      const step3: SyncStep = { id: "3", name: "Fiyat Hesaplama", status: "running" };
       steps.push(step3);
 
-      // Use PricingRulesService for pricing calculations
+      // Use PricingRulesService for pricing calculations on the fly for preview
       const pricingService = new PricingRulesService();
       let rulesApplied = 0;
 
@@ -470,7 +458,6 @@ export const syncRouter = router({
               rulesApplied++;
             }
           } catch {
-            // Fallback to default margins if pricing service fails
             const margin = product.category === "tire" ? 1.25 :
                           product.category === "rim" ? 1.30 : 1.20;
             product.calculatedPrice = Math.round(product.price * margin * 100) / 100;
@@ -481,41 +468,35 @@ export const syncRouter = router({
       step3.status = "completed";
       step3.duration = Date.now() - step3Start;
       step3.message = rulesApplied > 0
-        ? `${rulesApplied} ürüne DB kuralı uygulandı`
-        : `Varsayılan fiyatlar hesaplandı`;
+        ? `${rulesApplied} ürüne kural uygulandı`
+        : `Fiyatlar hesaplandı`;
 
       const step4Start = Date.now();
-      const step4: SyncStep = { id: "4", name: "Shopify Hazırlık", status: "running" };
+      const step4: SyncStep = { id: "4", name: "Shopify Bağlantısı", status: "running" };
       steps.push(step4);
 
       const shopifyConfigured = !!(process.env.SHOPIFY_SHOP_DOMAIN && process.env.SHOPIFY_ACCESS_TOKEN);
 
       if (shopifyConfigured) {
         step4.status = "completed";
-        step4.message = "Shopify bağlantısı hazır";
+        step4.message = "Bağlantı hazır";
       } else {
         step4.status = "error";
-        step4.message = "Shopify yapılandırması eksik";
+        step4.message = "Ayarlar eksik";
         errors.push("Shopify env değişkenleri ayarlanmamış");
       }
       step4.duration = Date.now() - step4Start;
 
-      for (const product of products) {
-        if (product.status === "pending") {
-          product.status = shopifyConfigured ? "success" : "skipped";
-        }
-      }
-
       return {
-        success: errors.length === 0 && !rateLimitError,
+        success: errors.length === 0,
         sessionId: crypto.randomUUID(),
         steps,
         products,
         errors,
-        fromCache,
-        rateLimitError, // Include rate limit info for UI
+        fromCache: true,
+        rateLimitError: undefined,
         summary: {
-          total: supplierProducts.length,
+          total: supplierProductsData.length,
           success: products.filter(p => p.status === "success").length,
           errors: products.filter(p => p.status === "error").length,
           skipped: products.filter(p => p.status === "skipped").length,
@@ -534,7 +515,7 @@ export const syncRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const effectiveLimit = input.testMode ? (input.productLimit || 5) : undefined;
+      const effectiveLimit = input.testMode ? (input.productLimit || 5) : (input.productLimit || 50);
 
       // Check Shopify configuration
       const shopDomain = process.env.SHOPIFY_SHOP_DOMAIN;
@@ -551,45 +532,266 @@ export const syncRouter = router({
       }
 
       try {
-        const useMock = process.env.USE_MOCK_SUPPLIER === "true";
+        // 1. Fetch products from DB
+        let query = db.select().from(supplierProducts);
+        
+        // Filter by status (valid or needs_update)
+        // For full sync, we take all valid. For incremental, ideally only changed ones, 
+        // but for now we treat valid as ready to sync.
+        query = query.where(
+          inArray(supplierProducts.validationStatus, ["valid", "needs_update", "published"])
+        ) as typeof query;
 
-        const supplierService = new SupplierService({ useMock });
+        // Filter by category
+        if (input.categories && input.categories.length > 0) {
+          query = query.where(inArray(supplierProducts.category, input.categories)) as typeof query;
+        }
+
+        // Limit
+        const productsToSync = await query
+          .orderBy(desc(supplierProducts.updatedAt))
+          .limit(effectiveLimit);
+
+        if (productsToSync.length === 0) {
+           return {
+            success: true,
+            sessionId: null,
+            message: "Senkronize edilecek ürün bulunamadı (Veritabanında 'valid' ürün yok).",
+            config: input,
+            result: { totalProducts: 0, created: 0, updated: 0, failed: 0, errors: [] },
+          };
+        }
+
+        // 2. Start Session
+        const sessionId = crypto.randomUUID();
+        await db.insert(syncSessions).values({
+          id: sessionId,
+          mode: input.mode,
+          status: "running",
+          startedAt: new Date(),
+          stats: { 
+            totalProducts: productsToSync.length,
+            dryRun: input.dryRun 
+          },
+        });
+
+        // 3. Process Sync
         const shopifyService = new ShopifyService({
           shopDomain,
           accessToken,
           locationId,
         });
 
-        const orchestrator = new SyncOrchestrator({
-          supplierService,
-          shopifyService,
-        });
+        const pricingService = new PricingRulesService();
+        
+        let created = 0;
+        let updated = 0;
+        let failed = 0;
+        const errors: string[] = [];
 
-        const syncConfig: SyncConfig = {
-          mode: input.mode,
-          categories: input.categories,
-          dryRun: input.dryRun,
-          batchSize: effectiveLimit,
-        };
+        // Process in parallel with concurrency limit (e.g., 5)
+        const concurrency = 5;
+        for (let i = 0; i < productsToSync.length; i += concurrency) {
+          const batch = productsToSync.slice(i, i + concurrency);
+          
+          await Promise.all(batch.map(async (product) => {
+            try {
+              // DRY RUN CHECK
+              if (input.dryRun) {
+                // Simulate success
+                if (!product.shopifyProductId) created++;
+                else updated++;
+                return;
+              }
 
-        const result = await orchestrator.startSync(syncConfig);
+              // Real Sync
+              const price = (product.currentPrice || 0) / 100;
+              const pricingResult = await pricingService.applyPricing(
+                price,
+                product.category as any,
+                product.brand || undefined
+              );
+
+              // Check if exists in Shopify
+              let existingProduct = null;
+              if (product.shopifyProductId) {
+                // We have ID, but verify it exists? Or trust DB? 
+                // Trust DB for speed, but handle 404.
+                // Or search by SKU if ID missing.
+              }
+              
+              // Fallback search by SKU
+              if (!existingProduct) {
+                 existingProduct = await shopifyService.getProductBySku(product.supplierSku);
+              }
+
+              if (existingProduct) {
+                // UPDATE
+                const variant = existingProduct.variants[0];
+                if (variant) {
+                  await shopifyService.updateVariant({
+                    id: variant.id,
+                    price: pricingResult.finalPrice.toString(),
+                  });
+                  
+                  if (variant.inventoryItem?.id) {
+                    await shopifyService.updateInventory({
+                      inventoryItemId: variant.inventoryItem.id,
+                      locationId,
+                      availableQuantity: product.currentStock || 0,
+                    });
+                  }
+                }
+                
+                // Prepare Metafields
+                const metafieldsInput = [];
+                if (product.metafields && typeof product.metafields === 'object') {
+                  for (const [key, value] of Object.entries(product.metafields)) {
+                    // Skip null/undefined/empty
+                    if (value === null || value === undefined || value === "") continue;
+                    
+                    // Simple type inference (should be improved with schema definition)
+                    let type = "single_line_text_field";
+                    if (typeof value === "number") {
+                      type = Number.isInteger(value) ? "number_integer" : "number_decimal";
+                    } else if (typeof value === "boolean") {
+                      type = "boolean";
+                    }
+
+                    metafieldsInput.push({
+                      namespace: "custom",
+                      key,
+                      value: String(value),
+                      type
+                    });
+                  }
+                }
+
+                // Update Metafields via updateProduct
+                if (metafieldsInput.length > 0) {
+                   await shopifyService.updateProduct({
+                     id: existingProduct.id,
+                     metafields: metafieldsInput
+                   });
+                }
+
+                updated++;
+                
+                // Update DB
+                await db.update(supplierProducts)
+                  .set({
+                    validationStatus: "published",
+                    shopifyProductId: existingProduct.id,
+                    shopifyVariantId: variant?.id,
+                    lastSyncedAt: new Date(),
+                    lastSyncedPrice: product.currentPrice,
+                    lastSyncedStock: product.currentStock,
+                  })
+                  .where(eq(supplierProducts.id, product.id));
+
+              } else {
+                // CREATE
+                // Prepare Metafields for Create
+                const metafieldsInput = [];
+                if (product.metafields && typeof product.metafields === 'object') {
+                  for (const [key, value] of Object.entries(product.metafields)) {
+                    if (value === null || value === undefined || value === "") continue;
+                    let type = "single_line_text_field";
+                    if (typeof value === "number") {
+                      type = Number.isInteger(value) ? "number_integer" : "number_decimal";
+                    } else if (typeof value === "boolean") {
+                      type = "boolean";
+                    }
+                    metafieldsInput.push({
+                      namespace: "custom",
+                      key,
+                      value: String(value),
+                      type
+                    });
+                  }
+                }
+
+                const newProduct = await shopifyService.createProduct({
+                  title: product.title,
+                  vendor: product.brand || "Tedarikçi",
+                  productType: product.category,
+                  status: "ACTIVE",
+                  variants: [{
+                    sku: product.supplierSku,
+                    price: pricingResult.finalPrice.toString(),
+                    inventoryManagement: "shopify",
+                    inventoryPolicy: "deny",
+                  }],
+                  images: product.images?.map((src: string) => ({ src })) || [],
+                  metafields: metafieldsInput,
+                });
+
+                if (newProduct?.variants?.[0]?.inventoryItem?.id) {
+                   await shopifyService.updateInventory({
+                      inventoryItemId: newProduct.variants[0].inventoryItem.id,
+                      locationId,
+                      availableQuantity: product.currentStock || 0,
+                    });
+                }
+
+                created++;
+
+                // Update DB
+                await db.update(supplierProducts)
+                  .set({
+                    validationStatus: "published",
+                    shopifyProductId: newProduct.id,
+                    shopifyVariantId: newProduct.variants?.[0]?.id,
+                    lastSyncedAt: new Date(),
+                    lastSyncedPrice: product.currentPrice,
+                    lastSyncedStock: product.currentStock,
+                  })
+                  .where(eq(supplierProducts.id, product.id));
+              }
+
+            } catch (err: any) {
+              failed++;
+              errors.push(`[${product.supplierSku}] ${err.message}`);
+              
+              // Log error to DB item
+              await db.insert(syncItems).values({
+                sessionId,
+                sku: product.supplierSku,
+                action: "error",
+                message: err.message,
+              });
+            }
+          }));
+        }
+
+        // 4. Finish Session
+        await db.update(syncSessions).set({
+          status: failed === 0 ? "completed" : "completed_with_errors",
+          finishedAt: new Date(),
+          stats: { 
+            totalProducts: productsToSync.length,
+            created,
+            updated,
+            failed,
+            errors: errors.slice(0, 50) 
+          },
+          errorSummary: errors.length > 0 ? `${errors.length} hata oluştu` : null,
+        }).where(eq(syncSessions.id, sessionId));
 
         return {
-          success: result.status !== "failed",
-          sessionId: result.sessionId,
-          message: result.status === "completed"
-            ? `Sync tamamlandı: ${result.created} oluşturuldu, ${result.updated} güncellendi, ${result.failed} başarısız`
-            : `Sync durumu: ${result.status}`,
+          success: true,
+          sessionId,
+          message: `Sync tamamlandı: ${created} yeni, ${updated} güncelleme, ${failed} hata.`,
           config: {
             ...input,
             effectiveProductLimit: effectiveLimit,
           },
           result: {
-            totalProducts: result.totalProducts,
-            created: result.created,
-            updated: result.updated,
-            failed: result.failed,
-            errors: result.errors.slice(0, 10), // First 10 errors
+            totalProducts: productsToSync.length,
+            created,
+            updated,
+            failed,
+            errors: errors.slice(0, 10),
           },
         };
       } catch (error) {

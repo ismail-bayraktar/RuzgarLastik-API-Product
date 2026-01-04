@@ -14,14 +14,13 @@
 
 ## Genel Bakış
 
-Bu proje **iki ayrı .env dosyası** gerektirir:
+Bu proje Unified Monorepo yapısındadır. Tüm konfigürasyon **apps/web/.env.local** dosyasında toplanır.
 
 | Dosya | Konum | Amaç |
 |-------|-------|------|
-| `apps/server/.env` | Backend (Hono) | Database, Shopify, Auth, Supplier |
-| `apps/web/.env` | Frontend (Next.js) | API URL'leri, Auth |
+| `.env.local` | `apps/web/.env.local` | Local development secret'ları |
 
-**⚠️ ÖNEMLİ:** `.env` dosyaları asla Git'e commit edilmemeli! `.gitignore`'da zaten engellenmiştir.
+**⚠️ ÖNEMLİ:** `.env.local` dosyaları asla Git'e commit edilmemeli!
 
 ---
 
@@ -54,7 +53,7 @@ postgresql://neondb_owner:AbCdEfGh123456@ep-cool-name-123456.eu-central-1.aws.ne
 ### Adım 4: .env'e Ekleme
 
 ```bash
-# apps/server/.env
+# apps/web/.env.local
 DATABASE_URL=postgresql://neondb_owner:AbCdEfGh123456@ep-cool-name-123456.eu-central-1.aws.neon.tech/neondb?sslmode=require
 ```
 
@@ -104,10 +103,10 @@ SHOPIFY_ACCESS_TOKEN=shpat_xxxxxxxxxxxxxxxxxxxxxxxx
 **Yöntem 1: Shopify Admin**
 - Settings → Locations → Depo seçin → URL'deki ID
 
-**Yöntem 2: GraphQL**
+**Yöntem 2: API**
+Sync uygulaması çalışırken:
 ```bash
-# Backend çalışırken:
-curl http://localhost:5000/api/shopify-test
+# İleride eklenecek bir endpoint ile sorgulanabilir
 ```
 
 ```bash
@@ -131,136 +130,56 @@ SHOPIFY_SHOP_DOMAIN=your-store-name.myshopify.com
 
 ## Better Auth Secret Üretimi
 
-Better Auth, session'ları imzalamak için **en az 32 karakter** uzunluğunda güvenli bir secret gerektirir.
-
 ### Yöntem 1: Node.js ile (Önerilen)
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-**Çıktı örneği:**
-```
-a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6
-```
-
-### Yöntem 2: OpenSSL ile
-
-```bash
-openssl rand -base64 32
-```
-
-### Yöntem 3: Bun ile
-
-```bash
-bun -e "console.log(crypto.randomUUID() + crypto.randomUUID())"
-```
-
 ### .env'e Ekleme
 
 ```bash
-# Her iki .env dosyasında da AYNI değer olmalı!
-
-# apps/server/.env
+# apps/web/.env.local
 BETTER_AUTH_SECRET=a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6
-BETTER_AUTH_URL=http://localhost:5000
-
-# apps/web/.env
-BETTER_AUTH_SECRET=a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6
-BETTER_AUTH_URL=http://localhost:5000
-```
-
-**⚠️ ÖNEMLİ:** Frontend ve backend'de **aynı secret** kullanılmalı!
-
----
-
-## Tedarikçi API Konfigürasyonu
-
-### Mock Mode (Development)
-
-Gerçek tedarikçi API'si olmadan geliştirme yapmak için:
-
-```bash
-USE_MOCK_SUPPLIER=true
-```
-
-### Real API Mode (Production)
-
-```bash
-USE_MOCK_SUPPLIER=false
-SUPPLIER_API_LASTIK=https://api.tedarikci.com/lastik
-SUPPLIER_API_JANT=https://api.tedarikci.com/jant
-SUPPLIER_API_AKU=https://api.tedarikci.com/aku
-SUPPLIER_API_TIMEOUT=30000
+BETTER_AUTH_URL=http://localhost:3000
 ```
 
 ---
 
 ## Tam .env Şablonu
 
-### apps/server/.env
+### apps/web/.env.local
 
 ```bash
 # ============================================
 # DATABASE (Neon PostgreSQL)
 # ============================================
-# Nereden alınır: https://console.neon.tech → Project → Connection Details
 DATABASE_URL=postgresql://username:password@ep-xxx.region.aws.neon.tech/dbname?sslmode=require
 
 # ============================================
 # BETTER AUTH
 # ============================================
-# Secret: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 BETTER_AUTH_SECRET=your-generated-secret-min-32-chars-here
-BETTER_AUTH_URL=http://localhost:5000
-
-# ============================================
-# CORS
-# ============================================
-CORS_ORIGIN=http://localhost:3000
+BETTER_AUTH_URL=http://localhost:3000
 
 # ============================================
 # SHOPIFY
 # ============================================
-# Nereden alınır: Shopify Admin → Settings → Apps → Develop apps → Your App
 SHOPIFY_SHOP_DOMAIN=your-store.myshopify.com
 SHOPIFY_ACCESS_TOKEN=shpat_xxxxxxxxxxxxxxxxxxxxxxxx
-SHOPIFY_API_VERSION=2024-10
-# Nereden alınır: Settings → Locations → URL'deki ID veya /api/shopify-test
 SHOPIFY_LOCATION_ID=gid://shopify/Location/123456789
 
 # ============================================
 # SUPPLIER API
 # ============================================
 USE_MOCK_SUPPLIER=true
-# Gerçek API kullanılacaksa:
-# SUPPLIER_API_LASTIK=https://...
-# SUPPLIER_API_JANT=https://...
-# SUPPLIER_API_AKU=https://...
 SUPPLIER_API_TIMEOUT=30000
 
 # ============================================
-# SERVER
+# NEXT.JS PUBLIC
 # ============================================
-PORT=5000
-NODE_ENV=development
-LOG_LEVEL=debug
-```
-
-### apps/web/.env
-
-```bash
-# ============================================
-# NEXT.JS PUBLIC VARIABLES
-# ============================================
-NEXT_PUBLIC_SERVER_URL=http://localhost:5000
 NEXT_PUBLIC_APP_URL=http://localhost:3000
-
-# ============================================
-# BETTER AUTH (Backend ile aynı olmalı!)
-# ============================================
-BETTER_AUTH_SECRET=your-generated-secret-min-32-chars-here
-BETTER_AUTH_URL=http://localhost:5000
+NEXT_PUBLIC_SERVER_URL=http://localhost:3000
 ```
 
 ---
@@ -270,45 +189,11 @@ BETTER_AUTH_URL=http://localhost:5000
 ### 1. Database Bağlantısı
 
 ```bash
-# packages/db dizininde:
-cd packages/db
-bun run test-connection.ts
-```
-
-Veya:
-```bash
 bun db:push
-# Başarılı çıktı: "Changes applied"
+# Başarılı çıktı: "Changes applied" veya "No changes"
 ```
 
-### 2. Shopify Bağlantısı
-
-Backend çalışırken:
-```bash
-curl http://localhost:5000/api/shopify-test
-```
-
-**Başarılı çıktı:**
-```json
-{
-  "success": true,
-  "shop": {
-    "name": "Your Store Name",
-    "email": "admin@yourstore.com"
-  }
-}
-```
-
-### 3. Auth Test
-
-```bash
-# Backend çalışırken login dene:
-curl -X POST http://localhost:5000/api/auth/sign-up/email \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@test.com","password":"Test1234!","name":"Test"}'
-```
-
-### 4. Tam Sistem Testi
+### 2. Tam Sistem Testi
 
 ```bash
 # Tüm sistemi başlat:
@@ -323,26 +208,11 @@ bun dev
 
 ## Checklist
 
-Projeyi başlatmadan önce kontrol edin:
-
-- [ ] Neon database oluşturuldu
-- [ ] DATABASE_URL doğru formatta (postgresql://...neon.tech/...)
-- [ ] BETTER_AUTH_SECRET üretildi (min 32 karakter)
-- [ ] BETTER_AUTH_SECRET her iki .env'de aynı
-- [ ] Shopify app oluşturuldu ve scopes tanımlandı
-- [ ] SHOPIFY_ACCESS_TOKEN alındı
-- [ ] SHOPIFY_LOCATION_ID belirlendi
-- [ ] `bun db:push` çalıştırıldı (migration)
+- [ ] `apps/web/.env.local` oluşturuldu
+- [ ] DATABASE_URL eklendi
+- [ ] BETTER_AUTH_SECRET eklendi
+- [ ] SHOPIFY credentials eklendi
+- [ ] `bun db:push` çalıştırıldı
 - [ ] `bun dev` ile sistem başlatıldı
-- [ ] Login test edildi
 
----
-
-## Sonraki Adımlar
-
-1. `.env` dosyalarını oluşturun
-2. `bun install` ile bağımlılıkları kurun
-3. `bun db:push` ile database'i hazırlayın
-4. `bun dev` ile sistemi başlatın
-5. http://localhost:3000/login adresinden giriş yapın
 

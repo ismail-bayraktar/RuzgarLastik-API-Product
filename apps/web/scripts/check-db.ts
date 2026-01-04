@@ -24,6 +24,11 @@ async function main() {
 		"SELECT COUNT(*) as count FROM products_cache"
 	);
 	console.log("products_cache:", cache.rows[0]);
+
+	const statusDistribution = await db.execute(
+		"SELECT validation_status, COUNT(*) as count FROM supplier_products GROUP BY validation_status"
+	);
+	console.log("Validation Status Distribution:", statusDistribution.rows);
 }
 
 main();

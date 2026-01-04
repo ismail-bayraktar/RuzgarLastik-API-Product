@@ -278,35 +278,96 @@ export default function SyncPage() {
         isRunning={isRunning}
       />
 
-      <div className="bg-card border border-border rounded-lg p-4 flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Kategoriler:</span>
-            {["tire", "rim", "battery"].map(cat => (
-              <button
-                key={cat}
-                onClick={() => toggleCategory(cat)}
-                className={`px-3 py-1.5 text-sm rounded-lg transition ${
-                  selectedCategories.includes(cat) ? "bg-primary text-primary-foreground" : "bg-muted"
-                }`}
+      <div className="bg-card border border-border rounded-lg p-4 flex flex-col gap-4">
+          <div className="flex flex-wrap items-center gap-6">
+            {/* Categories */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-muted-foreground">Kategoriler:</span>
+              <div className="flex gap-1">
+                {["tire", "rim", "battery"].map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => toggleCategory(cat)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md border transition ${
+                      selectedCategories.includes(cat) 
+                        ? "bg-primary/10 border-primary/50 text-primary" 
+                        : "bg-muted/50 border-transparent text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {getCategoryEmoji(cat)} {getCategoryLabel(cat)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="h-8 w-px bg-border hidden sm:block" />
+
+            {/* Mode Selection */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-muted-foreground">Mod:</span>
+              <select 
+                value={syncMode} 
+                onChange={(e) => setSyncMode(e.target.value as any)}
+                className="h-8 text-sm bg-background border border-border rounded-md px-2 focus:ring-1 focus:ring-primary outline-none"
               >
-                {getCategoryEmoji(cat)} {getCategoryLabel(cat)}
-              </button>
-            ))}
+                <option value="incremental">Incremental (Sadece Değişenler)</option>
+                <option value="all">Full (Hepsini Zorla)</option>
+              </select>
+            </div>
+
+            {/* Limit Input */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-muted-foreground">Limit:</span>
+              <input 
+                type="number" 
+                value={testLimit}
+                onChange={(e) => setTestLimit(parseInt(e.target.value) || 5)}
+                className="h-8 w-20 text-sm bg-background border border-border rounded-md px-2 focus:ring-1 focus:ring-primary outline-none"
+                min={1}
+                max={500}
+              />
+            </div>
+
+            {/* Dry Run Toggle */}
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <div className={`w-4 h-4 rounded border flex items-center justify-center transition ${
+                dryRun ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground"
+              }`}>
+                {dryRun && <Check className="w-3 h-3" />}
+              </div>
+              <input 
+                type="checkbox" 
+                checked={dryRun}
+                onChange={(e) => setDryRun(e.target.checked)}
+                className="hidden"
+              />
+              <span className="text-sm font-medium text-muted-foreground">Dry Run (Test Modu)</span>
+            </label>
           </div>
 
-          <div className="flex-1" />
+          <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
+             <button 
+              onClick={handlePreview} 
+              disabled={isRunning} 
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted rounded-lg transition"
+            >
+              <Eye className="h-4 w-4" /> 
+              Önizle
+            </button>
 
-          <button onClick={handlePreview} disabled={isRunning} className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-muted rounded-lg">
-            <Eye className="h-4 w-4" /> Önizle
-          </button>
-
-          <button onClick={() => handleSync(true)} disabled={isRunning || !isPreviewLoaded} className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-amber-500/10 text-amber-600 border border-amber-500/30 rounded-lg">
-            <TestTube className="h-4 w-4" /> Test Et
-          </button>
-
-          <button onClick={() => handleSync(false)} disabled={isRunning || !isPreviewLoaded} className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-green-600 text-white rounded-lg">
-            <Upload className="h-4 w-4" /> Shopify'a Gönder
-          </button>
+            <button 
+              onClick={() => handleSync(undefined)} // Use state values
+              disabled={isRunning || (!isPreviewLoaded && syncMode !== "all")} 
+              className={`inline-flex items-center gap-2 px-6 py-2 text-sm font-medium rounded-lg transition shadow-sm ${
+                dryRun 
+                  ? "bg-amber-500/10 text-amber-600 border border-amber-500/20 hover:bg-amber-500/20" 
+                  : "bg-green-600 text-white hover:bg-green-700"
+              }`}
+            >
+              {dryRun ? <TestTube className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
+              {dryRun ? "Simülasyon Başlat" : "Shopify'a Gönder"}
+            </button>
+          </div>
       </div>
 
       {isPreviewLoaded && (

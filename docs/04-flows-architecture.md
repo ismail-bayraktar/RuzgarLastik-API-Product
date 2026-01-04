@@ -24,7 +24,8 @@
                      │ POST /api/trpc/sync.start
                      ↓
 ┌─────────────────────────────────────────────────────┐
-│ Hono Backend - Sync Orchestrator                    │
+│ Next.js API Routes (Unified Backend)                │
+│ (Hono Adapter over Next.js)                         │
 ├─────────────────────────────────────────────────────┤
 │                                                     │
 │  1. Validate Input (categories, limit, mode)      │

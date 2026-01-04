@@ -35,6 +35,7 @@
   },
   "devDependencies": {
     "turbo": "^2.6.3",
+    "next": "^16.0.10",
     "typescript": "catalog:",
     "@types/bun": "catalog:"
   },

@@ -35,12 +35,11 @@ import ws from "ws";
 
 neonConfig.webSocketConstructor = ws;
 
-const dbUrl = process.env.DATABASE_URL;
+const dbUrl = process.env.DATABASE_URL || "postgres://dummy:dummy@localhost:5432/dummy";
 
-if (!dbUrl) {
-    // Bu hata Next.js ekranında daha açıklayıcı görünecek
-    throw new Error(
-        "DATABASE_URL is missing. Please ensure .env file exists at the root or apps/web directory. " +
+if (!process.env.DATABASE_URL) {
+    console.warn(
+        "[DB-INIT] WARNING: DATABASE_URL is missing. Using dummy URL for build/initialization safety. " +
         `Checked directory: ${cwd}`
     );
 }

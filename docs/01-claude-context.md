@@ -64,21 +64,17 @@ Eski proje (Node.js + Next.js API Routes sürümü) gerçekten **çalışıyordu
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  Better-T-Stack (Turborepo Monorepo)               │
+│  Better-T-Stack (Unified Monorepo)                 │
 ├─────────────────────────────────────────────────────┤
 │                                                     │
-│  📱 Frontend (Next.js)                             │
+│  📱 Unified App (Next.js)                          │
 │  ├─ apps/web/                                      │
-│  │  ├─ Admin Dashboard                            │
-│  │  ├─ Better Auth (Login)                        │
-│  │  └─ tRPC client                                │
-│  │                                                 │
-│  ⚙️  Backend (Hono + Bun)                           │
-│  ├─ apps/server/                                   │
-│  │  ├─ tRPC routes (server.createCaller)          │
-│  │  ├─ Sync Engine (orchestrator)                 │
-│  │  ├─ Services (Supplier, Shopify, Parser)      │
-│  │  └─ Middleware (Auth, Rate Limit, Log)        │
+│  │  ├─ Frontend (React/Tailwind/Shadcn)           │
+│  │  ├─ Backend (Next.js API Routes + Hono adapter)│
+│  │  │  ├─ /api/trpc/* (tRPC Endpoints)            │
+│  │  │  ├─ /api/auth/* (Better Auth)               │
+│  │  │  └─ Services (Sync, Shopify, Supplier)      │
+│  │  └─ Scripts (Ingest, Process, Sync CLI tools)  │
 │  │                                                 │
 │  🗄️  Shared Packages                                │
 │  ├─ packages/db/                                   │
@@ -86,7 +82,7 @@ Eski proje (Node.js + Next.js API Routes sürümü) gerçekten **çalışıyordu
 │  │  ├─ Database migrations                        │
 │  │  └─ Seed scripts                               │
 │  ├─ packages/api/                                 │
-│  │  └─ tRPC router definitions                    │
+│  │  └─ tRPC router definitions (merged into web)  │
 │  └─ packages/config/                              │
 │     └─ Ortak type definitions                     │
 │                                                     │
@@ -99,8 +95,9 @@ Eski proje (Node.js + Next.js API Routes sürümü) gerçekten **çalışıyordu
 ### Runtime & Package Manager
 
 - **Bun**: Node.js'den 4x hızlı (native bundler + transpiler)
-- **Turborepo**: Monorepo task orchestration (cache-friendly)
-- **Hono**: Lightweight HTTP framework (Cloudflare Workers uyumlu)
+- **Turborepo**: Monorepo task orchestration
+- **Hono**: Next.js API Routes içinde adaptör ile çalışan lightweight framework
+- **Vercel**: Production deployment platformu
 
 ---
 
@@ -378,7 +375,7 @@ Farklı ürün tiplerine göre farklı formatlar:
 - [x] Migration dosyaları oluşturuldu
 - [x] `bun db:push` ile Neon'a apply
 
-#### 3. Backend (Hono) - 14 Servis
+#### 3. Unified Backend Logic (apps/web/src/services)
 - [x] `syncOrchestrator.ts` - Ana sync koordinasyonu
 - [x] `shopifyService.ts` - GraphQL client, rate limiting
 - [x] `supplierService.ts` - Tedarikçi API
@@ -393,7 +390,7 @@ Farklı ürün tiplerine göre farklı formatlar:
 - [x] `fetchJobService.ts` - Fetch job yönetimi
 - [x] `jobSchedulerService.ts` - Otomatik retry
 
-#### 4. Frontend (Next.js) - 8 Sayfa
+#### 4. Frontend & UI (apps/web) - 8 Sayfa
 - [x] `/dashboard` - Overview
 - [x] `/dashboard/sync` - Sync pipeline UI
 - [x] `/dashboard/pricing-rules` - Fiyat kuralları CRUD
@@ -403,7 +400,7 @@ Farklı ürün tiplerine göre farklı formatlar:
 - [x] `/dashboard/logs` - Sync logları
 - [x] `/dashboard/api-test` - API test arayüzü
 
-#### 5. tRPC Routers - 5 Router
+#### 5. API Routes (tRPC)
 - [x] `sync.ts` - Sync işlemleri
 - [x] `products.ts` - Ürün sorguları
 - [x] `priceRules.ts` - Fiyat kuralları
@@ -422,9 +419,8 @@ Farklı ürün tiplerine göre farklı formatlar:
 ### 📋 Devam Eden / Planlanan
 - [ ] Unit testler (title parser vb.)
 - [ ] Integration testler (Shopify mock)
-- [ ] E2E testler (full sync scenario)
-- [ ] GitHub Actions CI/CD
-- [ ] Production deployment
+- [x] GitHub Actions CI/CD (sync-cron.yml)
+- [x] Production deployment (Vercel)
 
 ---
 
@@ -440,7 +436,7 @@ bun install
 # 3. Database'i hazırla
 bun db:push
 
-# 4. Sistemi başlat
+# 4. Sistemi başlat (Unified)
 bun dev
 
 # 5. Tarayıcıda aç

@@ -11,3 +11,8 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ## [~] Track: Systematic Pipeline Rebuild (Backend 2.0)
 *Link: [./conductor/tracks/pipeline_rebuild_20251231/](./conductor/tracks/pipeline_rebuild_20251231/)*
+
+---
+
+## [x] Track: Documentation & Architecture Alignment
+*Link: [./conductor/tracks/docs_alignment_20260104/](./conductor/tracks/docs_alignment_20260104/)*

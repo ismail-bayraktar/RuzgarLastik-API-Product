@@ -664,6 +664,11 @@ router.mutation('updateSetting', (input: {
    - Connection: Pooled connection string
    - Backup: Auto (Neon feature)
 
+4. **Vercel Infrastructure (Deployment)**
+   - Hosting: Serverless Functions (Next.js API)
+   - Environment: Production & Preview
+   - Logs: Vercel Runtime Logs
+
 ---
 
 ## Error Handling & Recovery

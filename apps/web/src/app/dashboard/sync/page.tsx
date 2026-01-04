@@ -123,7 +123,7 @@ export default function SyncPage() {
 
   // --- Mutations ---
   const refreshCacheMutation = useMutation({
-    ...trpc.sync.refreshCache.mutationOptions(),
+    ...(trpc.sync.refreshCache.mutationOptions() as any),
     onSuccess: (data: any) => {
       if (data.rateLimitError) {
         toast.error(`API Rate Limit: ${data.rateLimitError.message}`);
@@ -135,7 +135,7 @@ export default function SyncPage() {
   });
 
   const previewMutation = useMutation({
-    ...trpc.sync.preview.mutationOptions(),
+    ...(trpc.sync.preview.mutationOptions() as any),
     onMutate: () => {
       setStepStatuses({ ingest: "running", parsing: "idle", metafields: "idle", pricing: "idle", shopify: "idle" });
       setActiveStep("ingest");
@@ -162,12 +162,12 @@ export default function SyncPage() {
   });
 
   const startSyncMutation = useMutation({
-    ...trpc.sync.start.mutationOptions(),
+    ...(trpc.sync.start.mutationOptions() as any),
     onMutate: () => {
       setStepStatuses(prev => ({ ...prev, shopify: "running" }));
       setActiveStep("shopify");
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       setStepStatuses(prev => ({ ...prev, shopify: data.success ? "completed" : "error" }));
       setActiveStep(undefined);
       toast.success(data.message || "Sync tamamlandı!");

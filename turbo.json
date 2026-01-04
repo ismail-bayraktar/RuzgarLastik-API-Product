@@ -1,6 +1,29 @@
 {
 	"$schema": "https://turbo.build/schema.json",
 	"ui": "tui",
+	"globalEnv": [
+		"DATABASE_URL",
+		"BETTER_AUTH_SECRET",
+		"BETTER_AUTH_URL",
+		"PORT",
+		"CORS_ORIGIN",
+		"SHOPIFY_SHOP_DOMAIN",
+		"SHOPIFY_ACCESS_TOKEN",
+		"SHOPIFY_LOCATION_ID",
+		"SHOPIFY_API_VERSION",
+		"USE_MOCK_SUPPLIER",
+		"SUPPLIER_API_URL",
+		"SUPPLIER_CUSTOMER_ID",
+		"SUPPLIER_API_KEY",
+		"CATEGORY_ID_AKU",
+		"CATEGORY_ID_JANT",
+		"CATEGORY_ID_JANT_PREORDER",
+		"CATEGORY_ID_CATALOG",
+		"CATEGORY_ID_LASTIK",
+		"SYNC_BATCH_SIZE",
+		"SYNC_CONCURRENCY",
+		"DEBUG"
+	],
 	"tasks": {
 		"build": {
 			"dependsOn": ["^build"],

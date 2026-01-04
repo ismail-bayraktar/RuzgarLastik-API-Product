@@ -177,7 +177,7 @@ export default function SyncPage() {
 
   // --- Handlers ---
   const handlePreview = useCallback(() => {
-    previewMutation.mutate({
+    (previewMutation.mutate as any)({
       categories: selectedCategories as any,
       productLimit: syncMode === "test" ? testLimit : 50,
       forceRefresh,
@@ -185,7 +185,7 @@ export default function SyncPage() {
   }, [syncMode, testLimit, selectedCategories, forceRefresh, previewMutation]);
 
   const handleSync = useCallback((isDryRun?: boolean) => {
-    startSyncMutation.mutate({
+    (startSyncMutation.mutate as any)({
       mode: syncMode === "all" ? "full" : "incremental",
       categories: selectedCategories as any,
       dryRun: isDryRun !== undefined ? isDryRun : dryRun,
@@ -257,7 +257,7 @@ export default function SyncPage() {
           <p className="text-sm text-muted-foreground">Tedarikçi → Shopify ürün senkronizasyonu</p>
         </div>
         <button
-          onClick={() => refreshCacheMutation.mutate({ categories: selectedCategories as any })}
+          onClick={() => (refreshCacheMutation.mutate as any)({ categories: selectedCategories as any })}
           className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-muted rounded-lg"
         >
           <RefreshCw className={`h-4 w-4 ${refreshCacheMutation.isPending ? "animate-spin" : ""}`} />

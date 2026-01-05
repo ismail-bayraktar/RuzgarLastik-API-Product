@@ -705,7 +705,7 @@ export const syncRouter = router({
                     await shopifyService.updateInventory({
                       inventoryItemId: variant.inventoryItem.id,
                       locationId,
-                      availableQuantity: product.currentStock || 0,
+                      availableQuantity: Math.max(0, product.currentStock || 0),
                     });
                   }
                 }
@@ -860,7 +860,7 @@ export const syncRouter = router({
                    await shopifyService.updateInventory({
                       inventoryItemId: newProduct.variants[0].inventoryItem.id,
                       locationId,
-                      availableQuantity: product.currentStock || 0,
+                      availableQuantity: Math.max(0, product.currentStock || 0),
                     });
                 }
 

@@ -398,6 +398,7 @@ export class ShopifyService {
       const variantInput: Record<string, unknown> = {
         id: defaultVariantId,
         price: variantData.price,
+        inventoryManagement: "SHOPIFY", // Enable inventory tracking
       };
 
       // Only set barcode if provided and not empty
@@ -558,6 +559,7 @@ export class ShopifyService {
     const variantInput: Record<string, unknown> = {
       id: input.id,
       price: input.price,
+      inventoryManagement: "SHOPIFY", // Enable inventory tracking
     };
     if (input.barcode) variantInput.barcode = input.barcode;
 

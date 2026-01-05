@@ -214,12 +214,14 @@ export default function SyncPage() {
 
   const handleSync = useCallback((isDryRun?: boolean) => {
     const effectiveDryRun = isDryRun !== undefined ? isDryRun : dryRun;
+    const effectiveLimit = syncMode === "all" ? 250 : testLimit;
+    
     (startSyncMutation.mutate as any)({
       mode: syncMode === "all" ? "full" : "incremental",
       categories: selectedCategories as any,
       dryRun: effectiveDryRun,
-      testMode: effectiveDryRun, // Dry run ise test modundadir, degilse gercek mod
-      productLimit: testLimit,
+      testMode: effectiveDryRun, 
+      productLimit: effectiveLimit,
     });
   }, [syncMode, selectedCategories, dryRun, testLimit, startSyncMutation]);
 
@@ -378,12 +380,14 @@ export default function SyncPage() {
               <span className="text-sm font-medium text-muted-foreground">Limit:</span>
               <input 
                 type="number" 
-                value={testLimit}
+                value={syncMode === "all" ? 250 : testLimit}
+                disabled={syncMode === "all"}
                 onChange={(e) => setTestLimit(parseInt(e.target.value) || 5)}
-                className="h-8 w-20 text-sm bg-background border border-border rounded-md px-2 focus:ring-1 focus:ring-primary outline-none"
+                className="h-8 w-20 text-sm bg-background border border-border rounded-md px-2 focus:ring-1 focus:ring-primary outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 min={1}
                 max={500}
               />
+              {syncMode === "all" && <span className="text-xs text-muted-foreground">(Batch Limiti)</span>}
             </div>
 
             {/* Dry Run Toggle */}

@@ -41,6 +41,7 @@ export interface CreateProductInput {
   descriptionHtml?: string;
   vendor?: string;
   productType?: string;
+  categoryId?: string;
   tags?: string[];
   status?: "ACTIVE" | "DRAFT";
   variants: Array<{
@@ -66,6 +67,7 @@ export interface UpdateProductInput {
   descriptionHtml?: string;
   vendor?: string;
   productType?: string;
+  categoryId?: string;
   tags?: string[];
   status?: "ACTIVE" | "DRAFT" | "ARCHIVED";
 }
@@ -311,6 +313,10 @@ export class ShopifyService {
       status: input.status || "ACTIVE",
     };
 
+    if (input.categoryId) {
+      productInput.category = input.categoryId;
+    }
+
     // Handle tags if present
     if (input.tags && input.tags.length > 0) {
       productInput.tags = input.tags;
@@ -481,7 +487,13 @@ export class ShopifyService {
       }
     `;
 
-    const data = await this.graphql<any>(mutation, { input }, ESTIMATED_COSTS.updateProduct);
+    const productInput: any = { ...input };
+    if (input.categoryId) {
+      productInput.category = input.categoryId;
+      delete productInput.categoryId; // Cleanup internal name
+    }
+
+    const data = await this.graphql<any>(mutation, { input: productInput }, ESTIMATED_COSTS.updateProduct);
 
     if (data.productUpdate.userErrors.length > 0) {
       throw new Error(
@@ -696,6 +708,96 @@ export class ShopifyService {
     return createdDefinitions;
   }
 
+  async ensureSmartCollections(): Promise<string[]> {
+    const collectionsToCreate = [
+      {
+        title: "Oto Lastik",
+        rule: { column: "TAG", relation: "EQUALS", condition: "Kategori:Lastik" },
+        description: "Tüm lastik modellerimiz."
+      },
+      {
+        title: "Çelik Jant",
+        rule: { column: "TAG", relation: "EQUALS", condition: "Kategori:Jant" },
+        description: "Tüm jant modellerimiz."
+      },
+      {
+        title: "Akü",
+        rule: { column: "TAG", relation: "EQUALS", condition: "Kategori:Akü" },
+        description: "Tüm akü çeşitlerimiz."
+      }
+    ];
+
+    const createdCollections: string[] = [];
+
+    // 1. Get existing smart collections (to avoid duplicates)
+    const query = `
+      query {
+        collections(first: 50, query: "collection_type:smart") {
+          edges {
+            node {
+              title
+              handle
+            }
+          }
+        }
+      }
+    `;
+
+    const existingData = await this.graphql<any>(query, {}, 10);
+    const existingTitles = new Set(existingData.collections.edges.map((e: any) => e.node.title));
+
+    // 2. Create missing collections
+    for (const col of collectionsToCreate) {
+      if (!existingTitles.has(col.title)) {
+        try {
+          await this.createSmartCollection(col.title, col.rule, col.description);
+          createdCollections.push(col.title);
+          console.log(`Created smart collection: ${col.title}`);
+        } catch (error) {
+          console.error(`Failed to create collection ${col.title}:`, error);
+        }
+      }
+    }
+
+    return createdCollections;
+  }
+
+  async createSmartCollection(title: string, rule: { column: string, relation: string, condition: string }, description?: string): Promise<string> {
+    const mutation = `
+      mutation collectionCreate($input: CollectionInput!) {
+        collectionCreate(input: $input) {
+          collection {
+            id
+            title
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `;
+
+    const input = {
+      title,
+      descriptionHtml: description,
+      ruleSet: {
+        appliedDisjunctively: false, // Match ALL conditions (AND)
+        rules: [rule]
+      }
+    };
+
+    const data = await this.graphql<any>(mutation, { input }, ESTIMATED_COSTS.createProduct);
+
+    if (data.collectionCreate.userErrors.length > 0) {
+      throw new Error(
+        `Collection creation error: ${JSON.stringify(data.collectionCreate.userErrors)}`
+      );
+    }
+
+    return data.collectionCreate.collection.id;
+  }
+
   async createMetafieldDefinition(key: string, name: string, type: string): Promise<string> {
     const mutation = `
       mutation CreateMetafieldDefinition($definition: MetafieldDefinitionInput!) {
@@ -716,11 +818,7 @@ export class ShopifyService {
       namespace: "custom",
       key,
       type,
-      ownerType: "PRODUCT",
-      access: {
-        admin: "MERCHANT_READ_WRITE",
-        storefront: "PUBLIC_READ"
-      }
+      ownerType: "PRODUCT"
     };
 
     const data = await this.graphql<any>(mutation, { definition }, 10);

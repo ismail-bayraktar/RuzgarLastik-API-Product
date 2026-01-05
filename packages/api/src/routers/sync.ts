@@ -10,6 +10,12 @@ import { TitleParserService } from "../../../../apps/web/src/services/titleParse
 import { validationService } from "../../../../apps/web/src/services/validationService";
 import { PARSER_TO_METAFIELD_MAP, prepareMetafieldsForShopify } from "../../../../apps/web/src/services/metafieldUtils";
 
+const TAXONOMY_MAP = {
+  tire: "gid://shopify/TaxonomyCategory/aa-8",
+  rim: "gid://shopify/TaxonomyCategory/aa-11",
+  battery: "gid://shopify/TaxonomyCategory/aa-10",
+};
+
 interface SyncStep {
   id: string;
   name: string;
@@ -270,6 +276,34 @@ async function getCachedProducts(categories: string[], limit: number, forceRefre
 }
 
 export const syncRouter = router({
+  setupCollections: protectedProcedure.mutation(async () => {
+    try {
+      const shopDomain = process.env.SHOPIFY_SHOP_DOMAIN;
+      const accessToken = process.env.SHOPIFY_ACCESS_TOKEN;
+      const locationId = process.env.SHOPIFY_LOCATION_ID;
+
+      if (!shopDomain || !accessToken || !locationId) {
+        throw new Error("Shopify credentials missing");
+      }
+
+      const shopifyService = new ShopifyService({ shopDomain, accessToken, locationId });
+      const created = await shopifyService.ensureSmartCollections();
+
+      return {
+        success: true,
+        message: created.length > 0 
+          ? `${created.length} yeni koleksiyon oluşturuldu: ${created.join(", ")}` 
+          : "Standart koleksiyonlar zaten mevcut.",
+        created
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `Koleksiyon kurulum hatası: ${error.message}`
+      };
+    }
+  }),
+
   setupMetafields: protectedProcedure.mutation(async () => {
     try {
       const shopDomain = process.env.SHOPIFY_SHOP_DOMAIN;
@@ -605,6 +639,50 @@ export const syncRouter = router({
               existingProduct = await shopifyService.getProductBySku(product.supplierSku);
 
               if (existingProduct) {
+                // Prepare Tags (Modern + Legacy for compatibility)
+                const tags = [
+                  // Modern Tags
+                  `Kategori:${product.category === 'tire' ? 'Lastik' : product.category === 'rim' ? 'Jant' : 'Akü'}`,
+                  `Marka:${product.brand || 'Diğer'}`,
+                ];
+                
+                const rawMetafields = (product.metafields as Record<string, unknown>) || {};
+                
+                // Legacy Tags Mapping
+                if (product.category === 'tire') {
+                  tags.push('tip_lastik', 'lastik');
+                  // Map seasons
+                  const season = String(rawMetafields.season || '').toLowerCase();
+                  if (season.includes('yaz')) tags.push('kategori_yaz', 'yaz');
+                  if (season.includes('kis') || season.includes('kış')) tags.push('kategori_kis', 'kis');
+                  
+                  // Map diameter
+                  const diameter = rawMetafields.rimDiameter || rawMetafields.diameter;
+                  if (String(diameter) === '17') tags.push('ebat_17inc');
+                } else if (product.category === 'rim') {
+                  tags.push('tip_jant');
+                  const diameter = rawMetafields.diameter || rawMetafields.rimDiameter;
+                  if (String(diameter) === '17') tags.push('ebat_17inc');
+                } else if (product.category === 'battery') {
+                  tags.push('Aku');
+                }
+
+                // Brand Tag (Uppercase for legacy collections like 'GOODYEAR')
+                if (product.brand) {
+                  tags.push(product.brand.toUpperCase());
+                }
+                
+                if (rawMetafields.season) tags.push(`Sezon:${rawMetafields.season}`);
+                if (rawMetafields.pcd) tags.push(`PCD:${rawMetafields.pcd}`);
+
+                // Update Product (Category & Tags)
+                await shopifyService.updateProduct({
+                  id: existingProduct.id,
+                  categoryId: TAXONOMY_MAP[product.category as keyof typeof TAXONOMY_MAP],
+                  tags,
+                  productType: product.category === 'tire' ? 'Lastik' : product.category === 'rim' ? 'Jant' : 'Akü',
+                });
+
                 const variant = existingProduct.variants[0];
                 if (variant) {
                   await shopifyService.updateVariant({
@@ -714,10 +792,41 @@ export const syncRouter = router({
                 // 4. Validate and prepare for API
                 const metafieldsInput = prepareMetafieldsForShopify(mappedMetafields);
 
+                // Prepare Tags (Modern + Legacy for compatibility)
+                const tags = [
+                  `Kategori:${product.category === 'tire' ? 'Lastik' : product.category === 'rim' ? 'Jant' : 'Akü'}`,
+                  `Marka:${product.brand || 'Diğer'}`,
+                ];
+
+                // Legacy Tags Mapping
+                if (product.category === 'tire') {
+                  tags.push('tip_lastik', 'lastik');
+                  const season = String(rawMetafields.season || '').toLowerCase();
+                  if (season.includes('yaz')) tags.push('kategori_yaz', 'yaz');
+                  if (season.includes('kis') || season.includes('kış')) tags.push('kategori_kis', 'kis');
+                  const diameter = rawMetafields.rimDiameter || rawMetafields.diameter;
+                  if (String(diameter) === '17') tags.push('ebat_17inc');
+                } else if (product.category === 'rim') {
+                  tags.push('tip_jant');
+                  const diameter = rawMetafields.diameter || rawMetafields.rimDiameter;
+                  if (String(diameter) === '17') tags.push('ebat_17inc');
+                } else if (product.category === 'battery') {
+                  tags.push('Aku');
+                }
+
+                if (product.brand) {
+                  tags.push(product.brand.toUpperCase());
+                }
+
+                if (rawMetafields.season) tags.push(`Sezon:${rawMetafields.season}`);
+                if (rawMetafields.pcd) tags.push(`PCD:${rawMetafields.pcd}`);
+
                 const newProduct = await shopifyService.createProduct({
                   title: product.title,
                   vendor: product.brand || "Tedarikçi",
                   productType: product.category === 'tire' ? 'Lastik' : product.category === 'rim' ? 'Jant' : 'Akü',
+                  categoryId: TAXONOMY_MAP[product.category as keyof typeof TAXONOMY_MAP],
+                  tags,
                   status: "ACTIVE",
                   variants: [{
                     sku: product.supplierSku,

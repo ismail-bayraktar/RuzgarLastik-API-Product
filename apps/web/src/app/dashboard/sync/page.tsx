@@ -5,7 +5,7 @@ import { trpc, queryClient } from "@/utils/trpc";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-  Play, Loader2, RefreshCw, Eye, Settings2,
+  Play, Loader2, RefreshCw, Eye, Settings2, Folders,
   Filter, Columns, ChevronDown, ChevronLeft, ChevronRight, Search,
   CheckSquare, Square, Minus, Check, Upload, TestTube
 } from "lucide-react";
@@ -148,6 +148,20 @@ export default function SyncPage() {
     }
   });
 
+  const setupCollectionsMutation = useMutation({
+    ...(trpc.sync.setupCollections.mutationOptions() as any),
+    onSuccess: (data: any) => {
+      if (data.success) {
+        toast.success(data.message);
+      } else {
+        toast.error(data.message);
+      }
+    },
+    onError: (error: any) => {
+      toast.error(`Koleksiyon kurulum hatası: ${error.message}`);
+    }
+  });
+
   const previewMutation = useMutation({
     ...(trpc.sync.preview.mutationOptions() as any),
     onMutate: () => {
@@ -275,6 +289,18 @@ export default function SyncPage() {
           <p className="text-sm text-muted-foreground">Tedarikçi → Shopify ürün senkronizasyonu</p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={() => setupCollectionsMutation.mutate(undefined)}
+            disabled={setupCollectionsMutation.isPending}
+            className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-muted rounded-lg hover:bg-muted/80 transition disabled:opacity-50"
+          >
+            {setupCollectionsMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Folders className="h-4 w-4" />
+            )}
+            Koleksiyonları Kur
+          </button>
           <button
             onClick={() => setupMetafieldsMutation.mutate(undefined)}
             disabled={setupMetafieldsMutation.isPending}

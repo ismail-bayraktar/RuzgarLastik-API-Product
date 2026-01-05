@@ -185,12 +185,15 @@ export default function SyncPage() {
   }, [syncMode, testLimit, selectedCategories, forceRefresh, previewMutation]);
 
   const handleSync = useCallback((isDryRun?: boolean) => {
+    const effectiveDryRun = isDryRun !== undefined ? isDryRun : dryRun;
     (startSyncMutation.mutate as any)({
       mode: syncMode === "all" ? "full" : "incremental",
       categories: selectedCategories as any,
-      dryRun: isDryRun !== undefined ? isDryRun : dryRun,
+      dryRun: effectiveDryRun,
+      testMode: effectiveDryRun, // Dry run ise test modundadir, degilse gercek mod
+      productLimit: testLimit,
     });
-  }, [syncMode, selectedCategories, dryRun, startSyncMutation]);
+  }, [syncMode, selectedCategories, dryRun, testLimit, startSyncMutation]);
 
   const toggleCategory = (category: string) => {
     setSelectedCategories(prev =>

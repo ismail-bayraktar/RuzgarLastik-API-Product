@@ -700,7 +700,7 @@ export const syncRouter = router({
                 }
                 
                 // Prepare metafields with proper mapping and validation
-                const rawMetafields = (product.metafields as Record<string, unknown>) || {};
+                // rawMetafields is already defined above
                 const mappedMetafields: Record<string, unknown> = {};
                 
                 // 1. Map parser keys to Shopify definition keys

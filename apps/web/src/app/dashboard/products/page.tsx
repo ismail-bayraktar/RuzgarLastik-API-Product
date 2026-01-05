@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useCallback } from "react";
@@ -311,4 +310,48 @@ function StatCard({ label, value, color }: { label: string; value: number; color
 			</p>
 		</div>
 	);
+}
+
+function getCategoryIcon(category: string) {
+	switch (category) {
+		case "tire": return <Disc3 className="h-4 w-4 text-blue-500" />;
+		case "rim": return <Circle className="h-4 w-4 text-orange-500" />;
+		case "battery": return <Battery className="h-4 w-4 text-red-500" />;
+		default: return <Package className="h-4 w-4 text-gray-500" />;
+	}
+}
+
+function getStatusBadge(status: string) {
+	switch (status) {
+		case "valid":
+			return (
+				<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-500/10 text-green-500">
+					<CheckCircle2 className="h-3 w-3" /> Hazır
+				</span>
+			);
+		case "invalid":
+			return (
+				<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-500/10 text-red-500">
+					<AlertCircle className="h-3 w-3" /> Hatalı
+				</span>
+			);
+		case "published":
+			return (
+				<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-500/10 text-blue-500">
+					<ExternalLink className="h-3 w-3" /> Yayında
+				</span>
+			);
+		case "needs_update":
+			return (
+				<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-yellow-500/10 text-yellow-500">
+					<RefreshCw className="h-3 w-3" /> Güncelleme
+				</span>
+			);
+		default:
+			return (
+				<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-500/10 text-gray-500">
+					<Circle className="h-3 w-3" /> Raw
+				</span>
+			);
+	}
 }

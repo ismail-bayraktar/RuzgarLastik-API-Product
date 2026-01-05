@@ -174,14 +174,14 @@ export class TitleParserService {
     let offset: number | undefined;
 
     // 1. Inch Keyword (17 inç) - Highest Priority
-    const inchMatch = lower.match(/\b(\d{2})\s*(?:inç|inch|inc)\b/);
+    const inchMatch = lower.match(/\b(\d{2})\s*(?:inç|inch|inc)/);
     if (inchMatch) {
         diameter = parseInt(inchMatch[1], 10);
     }
 
     // 2. Dimension Pair (7x17)
     if (!diameter) {
-        const dimMatch = lower.match(/(\d+(?:\.\d+)?)\s*[jJ]?\s*[xX]\s*(\d{2})\b/);
+        const dimMatch = lower.match(/(\d+(?:\.\d+)?)\s*[jJ]?\s*[xX]\s*(\d+(?:\.\d+)?)\b/);
         if (dimMatch) {
             const v1 = parseFloat(dimMatch[1]);
             const v2 = parseFloat(dimMatch[2]);

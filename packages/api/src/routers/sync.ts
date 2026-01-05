@@ -845,15 +845,15 @@ export const syncRouter = router({
     }),
 
   reprocessAll: protectedProcedure
-    .input(z.void())
-    .mutation(async () => {
+    .input(z.object({ category: z.enum(["tire", "rim", "battery"]).optional() }).optional())
+    .mutation(async ({ input }) => {
       try {
         const titleParser = new TitleParserService();
         const pricingService = new PricingRulesService();
         
-        let query = db.select().from(supplierProducts);
+        let query = db.select().from(supplierProducts).$dynamic();
         if (input?.category) {
-          query = query.where(eq(supplierProducts.category, input.category)) as typeof query;
+          query = query.where(eq(supplierProducts.category, input.category));
         }
 
         const allProducts = await query;

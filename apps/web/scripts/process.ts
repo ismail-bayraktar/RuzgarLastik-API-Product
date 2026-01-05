@@ -1,7 +1,7 @@
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
-import { db, eq, and, isNull } from "@my-better-t-app/db";
+import { db, eq, and, isNull, or } from "@my-better-t-app/db";
 import { supplierProducts } from "@my-better-t-app/db/schema";
 import { TitleParserService } from "../src/services/titleParserService";
 import { PricingRulesService } from "../src/services/pricingRulesService";
@@ -16,9 +16,27 @@ async function runProcess() {
   const titleParser = new TitleParserService();
   const pricingService = new PricingRulesService();
   
-  // 1. Fetch raw products
-  const rawProducts = await db.select().from(supplierProducts)
-    .where(eq(supplierProducts.validationStatus, "raw"));
+  // 1. Fetch products based on args
+  const args = process.argv.slice(2);
+  const reprocessAll = args.includes("--all");
+  const retryFailed = args.includes("--retry-failed");
+
+  let query = db.select().from(supplierProducts).$dynamic();
+  
+  if (reprocessAll) {
+      console.log("Mode: Reprocess ALL products");
+      // No filter
+  } else if (retryFailed) {
+      console.log("Mode: Retry FAILED (raw + invalid)");
+      // @ts-ignore
+      query = query.where(or(eq(supplierProducts.validationStatus, "raw"), eq(supplierProducts.validationStatus, "invalid")));
+  } else {
+      console.log("Mode: Process NEW (raw only)");
+      // @ts-ignore
+      query = query.where(eq(supplierProducts.validationStatus, "raw"));
+  }
+
+  const rawProducts = await query;
     
   console.log(`Found ${rawProducts.length} products to process.`);
 

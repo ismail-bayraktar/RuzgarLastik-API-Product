@@ -9,11 +9,12 @@ import { PricingRulesService } from "../../../../apps/web/src/services/pricingRu
 import { TitleParserService } from "../../../../apps/web/src/services/titleParserService";
 import { validationService } from "../../../../apps/web/src/services/validationService";
 import { PARSER_TO_METAFIELD_MAP, prepareMetafieldsForShopify } from "../../../../apps/web/src/services/metafieldUtils";
+import { DescriptionGeneratorService } from "../../../../apps/web/src/services/descriptionGenerator";
 
 const TAXONOMY_MAP = {
   tire: "gid://shopify/TaxonomyCategory/aa-8",
-  rim: "gid://shopify/TaxonomyCategory/aa-11",
-  battery: "gid://shopify/TaxonomyCategory/aa-10",
+  rim: undefined, // "gid://shopify/TaxonomyCategory/aa-11" is INVALID
+  battery: undefined, // "gid://shopify/TaxonomyCategory/aa-10" is INVALID
 };
 
 interface SyncStep {
@@ -610,6 +611,7 @@ export const syncRouter = router({
         });
 
         const pricingService = new PricingRulesService();
+        const descriptionGenerator = new DescriptionGeneratorService();
         
         let created = 0;
         let updated = 0;
@@ -675,11 +677,20 @@ export const syncRouter = router({
                 if (rawMetafields.season) tags.push(`Sezon:${rawMetafields.season}`);
                 if (rawMetafields.pcd) tags.push(`PCD:${rawMetafields.pcd}`);
 
-                // Update Product (Category & Tags)
+                // Generate Description
+                const descriptionHtml = descriptionGenerator.generateDescription({
+                  title: product.title,
+                  brand: product.brand || 'Bilinmiyor',
+                  category: product.category as "tire" | "rim" | "battery",
+                  metafields: rawMetafields
+                });
+
+                // Update Product (Category & Tags & Description)
                 await shopifyService.updateProduct({
                   id: existingProduct.id,
                   categoryId: TAXONOMY_MAP[product.category as keyof typeof TAXONOMY_MAP],
                   tags,
+                  descriptionHtml,
                   productType: product.category === 'tire' ? 'Lastik' : product.category === 'rim' ? 'Jant' : 'Akü',
                 });
 
@@ -821,8 +832,17 @@ export const syncRouter = router({
                 if (rawMetafields.season) tags.push(`Sezon:${rawMetafields.season}`);
                 if (rawMetafields.pcd) tags.push(`PCD:${rawMetafields.pcd}`);
 
+                // Generate Description
+                const descriptionHtml = descriptionGenerator.generateDescription({
+                  title: product.title,
+                  brand: product.brand || 'Bilinmiyor',
+                  category: product.category as "tire" | "rim" | "battery",
+                  metafields: rawMetafields
+                });
+
                 const newProduct = await shopifyService.createProduct({
                   title: product.title,
+                  descriptionHtml,
                   vendor: product.brand || "Tedarikçi",
                   productType: product.category === 'tire' ? 'Lastik' : product.category === 'rim' ? 'Jant' : 'Akü',
                   categoryId: TAXONOMY_MAP[product.category as keyof typeof TAXONOMY_MAP],

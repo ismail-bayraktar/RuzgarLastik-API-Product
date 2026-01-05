@@ -87,27 +87,6 @@ Eski proje (Node.js + Next.js API Routes sürümü) gerçekten **çalışıyordu
 - **Hono**: Next.js API Routes içinde adaptör ile çalışan lightweight framework
 - **Vercel**: Production deployment platformu
 
----
-
-## Kritik Bilgiler & Uyarılar
-
-### 🚨 Metafield Type Compatibility
-
-**Eski projede yaşanan hata:** `Type 'number_decimal' must be consistent with the definition's type: 'number_integer'`
-
-**Çözüm:** `metafieldUtils.ts` servisi, Shopify'a göndermeden önce tüm değerleri şemaya göre zorlar (coerce).
-
-### 🚨 Title Parsing Hassasiyeti
-
-Farklı ürün tiplerine göre farklı formatlar:
-- Lastik: `205/55R16`, `205 55 16`, `2055516`
-- Jant: `7Jx17`, `17x7`, `5x112`, `ET45`
-- Akü: `60Ah`, `540A`, `12V`
-
-**Çözüm:** `TitleParserService.ts` içinde gelişmiş "Attribute Hunting" ve "Constraint-Based Parsing" mantığı kullanılıyor. Tek bir regex yerine, metin içindeki tüm sayıları analiz edip en mantıklı kombinasyonu bulur.
-
----
-
 ## Başlama Checklist
 
 ### ✅ Tamamlanan Özellikler
@@ -123,19 +102,41 @@ Farklı ürün tiplerine göre farklı formatlar:
 - [x] `process.ts`: Ham veriyi parse eder, fiyatlandırır ve `valid/invalid` olarak işaretler.
 - [x] `TitleParserService`: Gelişmiş regex ve mantık ile ürün özelliklerini ayıklar.
 - [x] `PricingRulesService`: Kategori ve marka bazlı dinamik fiyatlandırma.
-- [x] `ShopifyService`: Rate-limited GraphQL client.
+- [x] `ShopifyService`: Rate-limited GraphQL client (Auto Metafield Definition + Smart Collections).
+- [x] `DescriptionGeneratorService`: Ürün özelliklerinden otomatik HTML tablo ve açıklama metni oluşturur.
 
 #### 3. Frontend (Dashboard)
-- [x] **Sync Panel:** Canlı sync başlatma, mod seçimi (Incremental/Full), Dry Run.
+- [x] **Sync Panel:** Canlı sync başlatma, mod seçimi (Incremental/Full), Dry Run, Metafield/Collection Setup.
 - [x] **Product List:** Tüm DB ürünlerini listeleme, filtreleme (Valid/Invalid).
 - [x] **Product Drawer:** Ürün detaylarını, ham veriyi ve parsing sonucunu inceleme.
 - [x] **Pricing Rules:** Kural ekleme, düzenleme ve silme.
 - [x] **Reprocess:** Tek tıkla tüm veritabanını yeniden parse etme özelliği.
 
 ### 📋 Devam Eden / Planlanan
-- [ ] Görsel (Image) senkronizasyonu (Şu an placeholder)
-- [ ] Stok takibi için webhook entegrasyonu
+- [ ] Stok takibi için webhook entegrasyonu (Inventory Sync aktif ama webhook yok)
 - [ ] Gelişmiş raporlama (Grafikler)
+
+---
+
+## Kritik Bilgiler & Uyarılar
+
+### 🚨 Metafield Mapping & Validation
+
+**Sorun:** Jant genişliği (örn: 8.5) yanlışlıkla `lastikGenislik` (min: 100) alanına gönderilirse Shopify hata verir.
+**Çözüm:** `sync.ts` router'ı kategoriye göre akıllı mapping yapar. Lastik için `width` -> `lastikGenislik`, Jant için `width` -> `jantGenislik` olarak işlenir.
+
+### 🚨 Taxonomy & Collections
+
+**Sorun:** Shopify Taxonomy ID'leri (gid://...) API versiyonuna göre değişebiliyor veya hata verebiliyor.
+**Çözüm:** Taxonomy ID yerine `Product Type` ve `Tags` stratejisi kullanılıyor.
+- **Smart Collections:** `Kategori:Lastik` gibi etiketler otomatik oluşturulan koleksiyonları besler.
+- **Legacy Tags:** Eski sistem uyumluluğu için `tip_lastik`, `GOODYEAR` gibi etiketler de eklenir.
+
+### 🚨 Metafield Type Compatibility
+
+**Eski projede yaşanan hata:** `Type 'number_decimal' must be consistent with the definition's type: 'number_integer'`
+
+**Çözüm:** `metafieldUtils.ts` servisi, Shopify'a göndermeden önce tüm değerleri şemaya göre zorlar (coerce).
 
 ---
 

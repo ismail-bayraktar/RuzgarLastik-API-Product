@@ -79,109 +79,70 @@ metafield(namespace: "custom", key: "lastikGenislik") {
 
 ---
 
-## Rüzgar Lastik Metafield Şeması
+## Rüzgar Lastik Metafield Şeması (Updated v2)
 
-### 1. LASTIK (TIRE) – 9 Field
+### 1. LASTIK (TIRE)
 
-#### Temel Ölçülü
+| Key | Type | Name | Açıklama |
+|---|---|---|---|
+| `lastikGenislik` | number_integer | Lastik Genişliği | Genişlik (mm) |
+| `lastikOran` | number_integer | Kesit Oranı | Boy/En oranı (%) |
+| `jantCap` | number_decimal | Jant Çapı (İnç) | Jant çapı |
+| `mevsimTip` | single_line_text_field | Mevsim Tipi | yaz / kis / dort_mevsim |
+| `hizIndeksi` | single_line_text_field | Hız Endeksi | H, V, W... |
+| `yukIndeksi` | number_integer | Yük Endeksi | 91, 94... |
+| `euYakit` | single_line_text_field | Yakıt Verimliliği | A-G |
+| `euIslakZemin` | single_line_text_field | Islak Zemin Tutuşu | A-G |
+| `euGurultu` | number_integer | Gürültü Seviyesi (dB) | dB |
+| `runflat` | boolean | Run Flat (Patlamaz) | true/false |
+| `xl` | boolean | XL (Ekstra Yük) | true/false |
 
-| Key | Type | Örnek | Açıklama | Zorunlu? |
-|---|---|---|---|---|
-| `lastikGenislik` | number_integer | 205 | Genişlik (mm) | ✅ |
-| `lastikOran` | number_integer | 55 | Boy/En oranı (%) | ✅ |
-| `jantCap` | number_decimal | 16.0 | Jant çapı (inch) | ✅ |
+### 2. JANT (RIM)
 
-#### Performans İndeksleri
+| Key | Type | Name | Açıklama |
+|---|---|---|---|
+| `jantGenislik` | number_decimal | Jant Genişliği | İnç (örn: 7.5) |
+| `jantCap` | number_decimal | Jant Çapı (İnç) | İnç (örn: 17) |
+| `jantPCD` | single_line_text_field | Bijon Aralığı (PCD) | örn: 5x112 |
+| `jantOffset` | number_integer | Offset (ET) | mm (örn: 45) |
 
-| Key | Type | Örnek | Açıklama | Zorunlu? |
-|---|---|---|---|---|
-| `mevsimTip` | single_line_text_field | "yaz" | yaz / kis / dort_mevsim | ✅ |
-| `hizIndeksi` | single_line_text_field | "V" | H / V / W / Y / Z (hız kategorisi) | ✅ |
-| `yukIndeksi` | number_integer | 91 | Yük taşıma indeksi | ✅ |
+### 3. AKÜ (BATTERY)
 
-#### EU Etiket (Direktif 1222/2009)
+| Key | Type | Name | Açıklama |
+|---|---|---|---|
+| `akuKapasite` | number_integer | Kapasite (Ah) | Amper-saat |
+| `akuCCA` | number_integer | Marş Gücü (CCA) | Soğuk marş akımı |
+| `voltaj` | number_integer | Voltaj (V) | 12V vb. |
 
-| Key | Type | Örnek | Açıklama | Zorunlu? |
-|---|---|---|---|---|
-| `euYakit` | single_line_text_field | "B" | A–G sınıfı (yakıt tasarrufu) | ✅ |
-| `euIslakZemin` | single_line_text_field | "B" | A–G sınıfı (ıslak aderans) | ✅ |
-| `euGurultu` | number_integer | 71 | Dış gürültü (dB) | ✅ |
+### 4. ORTAK (COMMON)
 
-**JSON Representation:**
-
-```typescript
-interface TireMetafields {
-  lastikGenislik: number;
-  lastikOran: number;
-  jantCap: number;
-  mevsimTip: "yaz" | "kis" | "dort_mevsim";
-  hizIndeksi: "H" | "V" | "W" | "Y" | "Z";
-  yukIndeksi: number;
-  euYakit: "A" | "B" | "C" | "D" | "E" | "F" | "G";
-  euIslakZemin: "A" | "B" | "C" | "D" | "E" | "F" | "G";
-  euGurultu: number;
-}
-```
-
----
-
-### 2. JANT (RIM) – 4 Field
-
-| Key | Type | Örnek | Açıklama | Zorunlu? |
-|---|---|---|---|---|
-| `jantGenislik` | number_decimal | 7.5 | J değeri (inch) | ✅ |
-| `jantPCD` | single_line_text_field | "5x112" | Bolt pattern (hole count x diameter) | ✅ |
-| `jantOffset` | number_integer | 45 | ET değeri (mm, offset) | ✅ |
-| `jantCap` | number_decimal | 17.0 | Jant çapı (inch) | ✅ |
-
-**JSON Representation:**
-
-```typescript
-interface RimMetafields {
-  jantGenislik: number;
-  jantPCD: string;    // "5x112", "4x100", etc.
-  jantOffset: number;
-  jantCap: number;
-}
-```
+| Key | Type | Name | Açıklama |
+|---|---|---|---|
+| `marka` | single_line_text_field | Marka | Ürün markası |
+| `model` | single_line_text_field | Model | Ürün modeli |
+| `tedarikci_kodu` | single_line_text_field | Tedarikçi Kodu | Opsiyonel |
 
 ---
 
-### 3. AKÜ (BATTERY) – 2 Field
+## Metafield Mapping Logic
 
-| Key | Type | Örnek | Açıklama | Zorunlu? |
-|---|---|---|---|---|
-| `akuKapasite` | number_integer | 60 | Ah (Amper-saat) | ✅ |
-| `akuCCA` | number_integer | 540 | Cold Cranking Amps | ✅ |
+Parser'dan gelen veriler (`width`, `diameter` vb.) kategoriye göre farklı metafield anahtarlarına yönlendirilir.
 
-**JSON Representation:**
+**Mapping Tablosu:**
 
-```typescript
-interface BatteryMetafields {
-  akuKapasite: number;
-  akuCCA: number;
-}
-```
+| Parser Key | Category: TIRE | Category: RIM | Category: BATTERY |
+|---|---|---|---|
+| `width` | `lastikGenislik` | `jantGenislik` | - |
+| `rimDiameter` / `diameter` | `jantCap` | `jantCap` | - |
+| `aspectRatio` | `lastikOran` | - | - |
+| `pcd` | - | `jantPCD` | - |
+| `offset` | - | `jantOffset` | - |
+| `capacity` | - | - | `akuKapasite` |
+| `voltage` | - | - | `voltaj` |
+
+Bu mantık `packages/api/src/routers/sync.ts` içinde `start` mutasyonunda uygulanır.
 
 ---
-
-### 4. ARAÇ UYUMLULUĞU (Optional) – 3 Field
-
-| Key | Type | Örnek | Açıklama | Zorunlu? |
-|---|---|---|---|---|
-| `aracMarka` | single_line_text_field | "BMW" | Araç markası | ❌ |
-| `aracModel` | single_line_text_field | "3 Series" | Araç modeli | ❌ |
-| `aracYil` | number_integer | 2021 | Model yılı | ❌ |
-
-**JSON Representation:**
-
-```typescript
-interface VehicleCompatibilityMetafields {
-  aracMarka?: string;
-  aracModel?: string;
-  aracYil?: number;
-}
-```
 
 ---
 

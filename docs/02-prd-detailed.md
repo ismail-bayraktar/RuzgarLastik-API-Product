@@ -56,10 +56,13 @@
 ### FR-3: Synchronization (Shopify Gönderim)
 - **Girdi:** `valid` veya `needs_update` statüsündeki ürünler.
 - **İşlem:**
-  - Shopify'da ürün var mı? (SKU kontrolü).
-  - Yoksa -> `productCreate`.
-  - Varsa -> `productUpdate` (Sadece değişen alanlar: Fiyat, Stok).
-  - Metafield'ları güncelle (`custom` namespace).
+  - **Kontrol:** Shopify'da ürün var mı? (SKU kontrolü).
+  - **Create/Update:** Yoksa oluştur, varsa güncelle.
+  - **Veri Zenginleştirme:**
+    - `DescriptionGeneratorService`: Teknik özellikleri içeren HTML tablo ve özet metin oluşturur.
+    - `Metafields`: Kategoriye özel alanları (`lastikGenislik`, `jantCap`) eşler ve günceller.
+    - `Tags`: Hem modern (`Kategori:Lastik`) hem de eski sistem (`tip_lastik`) etiketlerini basar.
+    - `Inventory`: Stok takibini (`inventoryManagement: SHOPIFY`) açar ve negatif stok koruması (`Math.max(0)`) uygular.
 - **Rate Limit:** `ShopifyService` içinde cost-based throttling (Bucket algoritması).
 
 ### FR-4: Admin Dashboard

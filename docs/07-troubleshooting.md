@@ -76,6 +76,21 @@ eslint: {
 2. `SYNC_CONCURRENCY` değerini düşürün (örn: 3).
 3. Backend otomatik olarak `Retry-After` header'ına uyup bekleyecektir (kodlandı).
 
+### ❌ Shopify API: `INVALID_PRODUCT_TAXONOMY_NODE_ID`
+
+**Sebep:** Gönderilen Kategori ID'si (GID) Shopify'ın mevcut API versiyonunda (`2024-10`) geçerli değil.
+**Çözüm:** `TAXONOMY_MAP` içinde geçersiz ID'leri (`gid://shopify/TaxonomyCategory/aa-11` vb.) `undefined` olarak ayarladık. Sadece doğrulanan `aa-8` (Lastik) kullanılıyor.
+
+### ❌ Shopify API: `The quantity can't be negative`
+
+**Sebep:** Tedarikçiden gelen stok verisi `-1` veya negatif bir değer içeriyor.
+**Çözüm:** `sync.ts` içinde stok değeri `Math.max(0, product.stock)` ile normalize ediliyor.
+
+### ❌ Metafield Definition Error: `access control is not permitted`
+
+**Sebep:** Metafield tanımı oluştururken `access: { admin: ..., storefront: ... }` ayarı bazı durumlarda reddediliyor.
+**Çözüm:** `ShopifyService.ts` içinde `access` ayarı kaldırıldı, Shopify'ın varsayılan yetki ayarları kullanılıyor.
+
 ### ❌ Metafield Type Mismatch
 
 **Sebep:** Shopify'daki tanım `integer` ama biz `string` veya `float` gönderiyoruz.

@@ -134,6 +134,20 @@ export default function SyncPage() {
     },
   });
 
+  const setupMetafieldsMutation = useMutation({
+    ...(trpc.sync.setupMetafields.mutationOptions() as any),
+    onSuccess: (data: any) => {
+      if (data.success) {
+        toast.success(data.message);
+      } else {
+        toast.error(data.message);
+      }
+    },
+    onError: (error: any) => {
+      toast.error(`Kurulum hatası: ${error.message}`);
+    }
+  });
+
   const previewMutation = useMutation({
     ...(trpc.sync.preview.mutationOptions() as any),
     onMutate: () => {
@@ -260,13 +274,27 @@ export default function SyncPage() {
           <h1 className="text-xl font-semibold text-foreground">Senkronizasyon</h1>
           <p className="text-sm text-muted-foreground">Tedarikçi → Shopify ürün senkronizasyonu</p>
         </div>
-        <button
-          onClick={() => (refreshCacheMutation.mutate as any)({ categories: selectedCategories as any })}
-          className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-muted rounded-lg"
-        >
-          <RefreshCw className={`h-4 w-4 ${refreshCacheMutation.isPending ? "animate-spin" : ""}`} />
-          Cache Yenile
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setupMetafieldsMutation.mutate(undefined)}
+            disabled={setupMetafieldsMutation.isPending}
+            className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-muted rounded-lg hover:bg-muted/80 transition disabled:opacity-50"
+          >
+            {setupMetafieldsMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Settings2 className="h-4 w-4" />
+            )}
+            Metafield Kurulumu
+          </button>
+          <button
+            onClick={() => (refreshCacheMutation.mutate as any)({ categories: selectedCategories as any })}
+            className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-muted rounded-lg hover:bg-muted/80 transition"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshCacheMutation.isPending ? "animate-spin" : ""}`} />
+            Cache Yenile
+          </button>
+        </div>
       </div>
 
       <StatusWidgets

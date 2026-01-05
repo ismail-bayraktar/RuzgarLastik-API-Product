@@ -167,33 +167,66 @@ export function coerceMetafieldValue(
 
 /**
  * Metafield definitions for the Ruzgar Lastik product schema
- * Based on docs/01-claude-context.md
+ * Based on docs/03-metafields-reference.md and parser outputs
  */
 export const METAFIELD_DEFINITIONS = {
-  // Required fields
-  marka: { type: "single_line_text_field" as const, required: true },
-  urun_tipi: { type: "single_line_text_field" as const, required: true },
-  ebat: { type: "single_line_text_field" as const, required: true },
+  // --- TIRE (Lastik) ---
+  lastikGenislik: { type: "number_integer" as const, name: "Lastik Genişliği" },
+  lastikOran: { type: "number_integer" as const, name: "Kesit Oranı" },
+  jantCap: { type: "number_decimal" as const, name: "Jant Çapı (İnç)" }, // Shared with Rim
+  mevsimTip: { type: "single_line_text_field" as const, name: "Mevsim Tipi" },
+  hizIndeksi: { type: "single_line_text_field" as const, name: "Hız Endeksi" },
+  yukIndeksi: { type: "number_integer" as const, name: "Yük Endeksi" },
+  euYakit: { type: "single_line_text_field" as const, name: "Yakıt Verimliliği" },
+  euIslakZemin: { type: "single_line_text_field" as const, name: "Islak Zemin Tutuşu" },
+  euGurultu: { type: "number_integer" as const, name: "Gürültü Seviyesi (dB)" },
+  runflat: { type: "boolean" as const, name: "Run Flat (Patlamaz)" },
+  xl: { type: "boolean" as const, name: "XL (Ekstra Yük)" },
 
-  // Optional tire-specific fields
-  sezon: { type: "single_line_text_field" as const, required: false },
-  yuk_indeksi: { type: "number_integer" as const, required: false },
-  hiz_indeksi: { type: "single_line_text_field" as const, required: false },
-  genislik: { type: "number_integer" as const, required: false },
-  profil: { type: "number_integer" as const, required: false },
-  cap: { type: "number_decimal" as const, required: false },
-  uretim_yili: { type: "number_integer" as const, required: false },
-  dot: { type: "single_line_text_field" as const, required: false },
-  ozellikler: { type: "list_single_line_text_field" as const, required: false },
-  xl: { type: "boolean" as const, required: false },
-  runflat: { type: "boolean" as const, required: false },
+  // --- RIM (Jant) ---
+  jantGenislik: { type: "number_decimal" as const, name: "Jant Genişliği" },
+  jantPCD: { type: "single_line_text_field" as const, name: "Bijon Aralığı (PCD)" },
+  jantOffset: { type: "number_integer" as const, name: "Offset (ET)" },
+  
+  // --- BATTERY (Akü) ---
+  akuKapasite: { type: "number_integer" as const, name: "Kapasite (Ah)" },
+  akuCCA: { type: "number_integer" as const, name: "Marş Gücü (CCA)" },
+  voltaj: { type: "number_integer" as const, name: "Voltaj (V)" },
 
-  // Supplier and pricing fields
-  tedarikci_adi: { type: "single_line_text_field" as const, required: false },
-  hammadde_fiyati: { type: "number_decimal" as const, required: false },
+  // --- COMMON / OTHER ---
+  marka: { type: "single_line_text_field" as const, name: "Marka" },
+  model: { type: "single_line_text_field" as const, name: "Model" },
+  tedarikci_kodu: { type: "single_line_text_field" as const, name: "Tedarikçi Kodu" },
 } as const;
 
 export type MetafieldKey = keyof typeof METAFIELD_DEFINITIONS;
+
+/**
+ * Maps parser output keys to Shopify Metafield keys
+ */
+export const PARSER_TO_METAFIELD_MAP: Record<string, MetafieldKey> = {
+  // Tire
+  width: "lastikGenislik",
+  aspectRatio: "lastikOran",
+  rimDiameter: "jantCap", // for Tire
+  season: "mevsimTip",
+  speedIndex: "hizIndeksi",
+  loadIndex: "yukIndeksi",
+  fuel: "euYakit",
+  wetGrip: "euIslakZemin",
+  noise: "euGurultu",
+  
+  // Rim
+  diameter: "jantCap", // for Rim
+  pcd: "jantPCD",
+  offset: "jantOffset",
+  // width -> jantGenislik (Needs logic based on category)
+
+  // Battery
+  capacity: "akuKapasite",
+  cca: "akuCCA",
+  voltage: "voltaj",
+};
 
 /**
  * Validates and coerces a metafield value based on its key
@@ -210,9 +243,6 @@ export function validateMetafield(
 
   // Handle empty values
   if (value === null || value === undefined || value === "") {
-    if (definition.required) {
-      throw new Error(`Required metafield "${key}" is missing`);
-    }
     return null;
   }
 

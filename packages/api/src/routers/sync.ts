@@ -8,6 +8,7 @@ import { ShopifyService } from "../../../../apps/web/src/services/shopifyService
 import { PricingRulesService } from "../../../../apps/web/src/services/pricingRulesService";
 import { TitleParserService } from "../../../../apps/web/src/services/titleParserService";
 import { validationService } from "../../../../apps/web/src/services/validationService";
+import { PARSER_TO_METAFIELD_MAP, prepareMetafieldsForShopify } from "../../../../apps/web/src/services/metafieldUtils";
 
 interface SyncStep {
   id: string;
@@ -269,6 +270,34 @@ async function getCachedProducts(categories: string[], limit: number, forceRefre
 }
 
 export const syncRouter = router({
+  setupMetafields: protectedProcedure.mutation(async () => {
+    try {
+      const shopDomain = process.env.SHOPIFY_SHOP_DOMAIN;
+      const accessToken = process.env.SHOPIFY_ACCESS_TOKEN;
+      const locationId = process.env.SHOPIFY_LOCATION_ID;
+
+      if (!shopDomain || !accessToken || !locationId) {
+        throw new Error("Shopify credentials missing");
+      }
+
+      const shopifyService = new ShopifyService({ shopDomain, accessToken, locationId });
+      const created = await shopifyService.ensureMetafieldDefinitions();
+
+      return {
+        success: true,
+        message: created.length > 0 
+          ? `${created.length} yeni metafield tanımı oluşturuldu.` 
+          : "Tüm metafield tanımları zaten mevcut.",
+        created
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `Metafield kurulum hatası: ${error.message}`
+      };
+    }
+  }),
+
   apiTestLogs: protectedProcedure
     .input(z.object({ limit: z.number().default(50) }))
     .query(async ({ input }) => {
@@ -592,25 +621,29 @@ export const syncRouter = router({
                   }
                 }
                 
-                const metafieldsInput = [];
-                if (product.metafields && typeof product.metafields === 'object') {
-                  for (const [key, value] of Object.entries(product.metafields)) {
-                    if (value === null || value === undefined || value === "") continue;
-                    
-                    let type = "single_line_text_field";
-                    if (typeof value === "number") {
-                      type = Number.isInteger(value) ? "number_integer" : "number_decimal";
-                    } else if (typeof value === "boolean") {
-                      type = "boolean";
-                    }
+                // Prepare metafields with proper mapping and validation
+                const rawMetafields = (product.metafields as Record<string, unknown>) || {};
+                const mappedMetafields: Record<string, unknown> = {};
+                
+                // 1. Map parser keys to Shopify definition keys
+                for (const [key, value] of Object.entries(rawMetafields)) {
+                  const mappedKey = PARSER_TO_METAFIELD_MAP[key] || key;
+                  mappedMetafields[mappedKey] = value;
+                }
 
-                    metafieldsInput.push({
-                      namespace: "custom",
-                      key,
-                      value: String(value),
-                      type
-                    });
-                  }
+                // 2. Add extra fields
+                mappedMetafields.marka = product.brand;
+                mappedMetafields.urun_tipi = product.category === 'tire' ? 'Lastik' : product.category === 'rim' ? 'Jant' : 'Akü';
+                mappedMetafields.ebat = product.title; // Fallback title as ebat if specific parser output missing
+                if (product.category === 'tire' && rawMetafields.width && rawMetafields.ratio && rawMetafields.rimDiameter) {
+                   mappedMetafields.ebat = `${rawMetafields.width}/${rawMetafields.ratio}R${rawMetafields.rimDiameter}`;
+                }
+
+                // 3. Validate and prepare for API
+                const metafieldsInput = prepareMetafieldsForShopify(mappedMetafields);
+
+                if (metafieldsInput.length > 0) {
+                  await shopifyService.setMetafields(existingProduct.id, metafieldsInput);
                 }
 
                 // Corrected Shopify update call (removed metafields from updateProduct if not supported)
@@ -628,29 +661,31 @@ export const syncRouter = router({
                   .where(eq(supplierProducts.id, product.id));
 
               } else {
-                const metafieldsInput = [];
-                if (product.metafields && typeof product.metafields === 'object') {
-                  for (const [key, value] of Object.entries(product.metafields)) {
-                    if (value === null || value === undefined || value === "") continue;
-                    let type = "single_line_text_field";
-                    if (typeof value === "number") {
-                      type = Number.isInteger(value) ? "number_integer" : "number_decimal";
-                    } else if (typeof value === "boolean") {
-                      type = "boolean";
-                    }
-                    metafieldsInput.push({
-                      namespace: "custom",
-                      key,
-                      value: String(value),
-                      type
-                    });
-                  }
+                // Prepare metafields with proper mapping and validation
+                const rawMetafields = (product.metafields as Record<string, unknown>) || {};
+                const mappedMetafields: Record<string, unknown> = {};
+                
+                // 1. Map parser keys to Shopify definition keys
+                for (const [key, value] of Object.entries(rawMetafields)) {
+                  const mappedKey = PARSER_TO_METAFIELD_MAP[key] || key;
+                  mappedMetafields[mappedKey] = value;
                 }
+
+                // 2. Add extra fields
+                mappedMetafields.marka = product.brand;
+                mappedMetafields.urun_tipi = product.category === 'tire' ? 'Lastik' : product.category === 'rim' ? 'Jant' : 'Akü';
+                mappedMetafields.ebat = product.title;
+                if (product.category === 'tire' && rawMetafields.width && rawMetafields.ratio && rawMetafields.rimDiameter) {
+                   mappedMetafields.ebat = `${rawMetafields.width}/${rawMetafields.ratio}R${rawMetafields.rimDiameter}`;
+                }
+
+                // 3. Validate and prepare for API
+                const metafieldsInput = prepareMetafieldsForShopify(mappedMetafields);
 
                 const newProduct = await shopifyService.createProduct({
                   title: product.title,
                   vendor: product.brand || "Tedarikçi",
-                  productType: product.category,
+                  productType: product.category === 'tire' ? 'Lastik' : product.category === 'rim' ? 'Jant' : 'Akü',
                   status: "ACTIVE",
                   variants: [{
                     sku: product.supplierSku,

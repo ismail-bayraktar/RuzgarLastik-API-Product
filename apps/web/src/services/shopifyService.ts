@@ -607,6 +607,81 @@ export class ShopifyService {
     }
   }
 
+  async ensureMetafieldDefinitions(): Promise<string[]> {
+    const { METAFIELD_DEFINITIONS } = await import("./metafieldUtils");
+    const createdDefinitions: string[] = [];
+
+    // 1. Get existing definitions
+    const query = `
+      query {
+        metafieldDefinitions(first: 250, ownerType: PRODUCT, namespace: "custom") {
+          edges {
+            node {
+              key
+              id
+            }
+          }
+        }
+      }
+    `;
+
+    const existingData = await this.graphql<any>(query, {}, 10);
+    const existingKeys = new Set(existingData.metafieldDefinitions.edges.map((e: any) => e.node.key));
+
+    // 2. Create missing definitions
+    for (const [key, def] of Object.entries(METAFIELD_DEFINITIONS)) {
+      if (!existingKeys.has(key)) {
+        try {
+          await this.createMetafieldDefinition(key, def.name, def.type);
+          createdDefinitions.push(key);
+          console.log(`Created metafield definition: ${key}`);
+        } catch (error) {
+          console.error(`Failed to create definition for ${key}:`, error);
+        }
+      }
+    }
+
+    return createdDefinitions;
+  }
+
+  async createMetafieldDefinition(key: string, name: string, type: string): Promise<string> {
+    const mutation = `
+      mutation CreateMetafieldDefinition($definition: MetafieldDefinitionInput!) {
+        metafieldDefinitionCreate(definition: $definition) {
+          createdDefinition {
+            id
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `;
+
+    const definition = {
+      name,
+      namespace: "custom",
+      key,
+      type,
+      ownerType: "PRODUCT",
+      access: {
+        admin: "MERCHANT_READ_WRITE",
+        storefront: "PUBLIC_READ"
+      }
+    };
+
+    const data = await this.graphql<any>(mutation, { definition }, 10);
+
+    if (data.metafieldDefinitionCreate.userErrors.length > 0) {
+      throw new Error(
+        `Metafield definition error (${key}): ${JSON.stringify(data.metafieldDefinitionCreate.userErrors)}`
+      );
+    }
+
+    return data.metafieldDefinitionCreate.createdDefinition.id;
+  }
+
   /**
    * @deprecated Use getRateLimiterStatus() instead for cost tracking
    */

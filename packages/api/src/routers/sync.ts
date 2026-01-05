@@ -627,19 +627,35 @@ export const syncRouter = router({
                 
                 // 1. Map parser keys to Shopify definition keys
                 for (const [key, value] of Object.entries(rawMetafields)) {
+                  // Skip context-dependent keys here, handle below
+                  if (["width", "rimDiameter", "diameter"].includes(key)) continue;
+                  
                   const mappedKey = PARSER_TO_METAFIELD_MAP[key] || key;
                   mappedMetafields[mappedKey] = value;
                 }
 
-                // 2. Add extra fields
+                // 2. Handle context-dependent keys
+                if (product.category === 'tire') {
+                   if (rawMetafields.width) mappedMetafields.lastikGenislik = rawMetafields.width;
+                   if (rawMetafields.rimDiameter) mappedMetafields.jantCap = rawMetafields.rimDiameter;
+                } else if (product.category === 'rim') {
+                   if (rawMetafields.width) mappedMetafields.jantGenislik = rawMetafields.width;
+                   if (rawMetafields.diameter) mappedMetafields.jantCap = rawMetafields.diameter;
+                }
+
+                // 3. Add extra fields
                 mappedMetafields.marka = product.brand;
                 mappedMetafields.urun_tipi = product.category === 'tire' ? 'Lastik' : product.category === 'rim' ? 'Jant' : 'Akü';
                 mappedMetafields.ebat = product.title; // Fallback title as ebat if specific parser output missing
                 if (product.category === 'tire' && rawMetafields.width && rawMetafields.ratio && rawMetafields.rimDiameter) {
                    mappedMetafields.ebat = `${rawMetafields.width}/${rawMetafields.ratio}R${rawMetafields.rimDiameter}`;
+                } else if (product.category === 'rim' && rawMetafields.width && rawMetafields.diameter) {
+                   mappedMetafields.ebat = `${rawMetafields.width}x${rawMetafields.diameter}`;
+                } else if (product.category === 'battery' && rawMetafields.voltage && rawMetafields.capacity && rawMetafields.cca) {
+                   mappedMetafields.ebat = `${rawMetafields.voltage}V ${rawMetafields.capacity}Ah ${rawMetafields.cca}A`;
                 }
 
-                // 3. Validate and prepare for API
+                // 4. Validate and prepare for API
                 const metafieldsInput = prepareMetafieldsForShopify(mappedMetafields);
 
                 if (metafieldsInput.length > 0) {
@@ -667,19 +683,35 @@ export const syncRouter = router({
                 
                 // 1. Map parser keys to Shopify definition keys
                 for (const [key, value] of Object.entries(rawMetafields)) {
+                  // Skip context-dependent keys here, handle below
+                  if (["width", "rimDiameter", "diameter"].includes(key)) continue;
+
                   const mappedKey = PARSER_TO_METAFIELD_MAP[key] || key;
                   mappedMetafields[mappedKey] = value;
                 }
 
-                // 2. Add extra fields
+                // 2. Handle context-dependent keys
+                if (product.category === 'tire') {
+                   if (rawMetafields.width) mappedMetafields.lastikGenislik = rawMetafields.width;
+                   if (rawMetafields.rimDiameter) mappedMetafields.jantCap = rawMetafields.rimDiameter;
+                } else if (product.category === 'rim') {
+                   if (rawMetafields.width) mappedMetafields.jantGenislik = rawMetafields.width;
+                   if (rawMetafields.diameter) mappedMetafields.jantCap = rawMetafields.diameter;
+                }
+
+                // 3. Add extra fields
                 mappedMetafields.marka = product.brand;
                 mappedMetafields.urun_tipi = product.category === 'tire' ? 'Lastik' : product.category === 'rim' ? 'Jant' : 'Akü';
                 mappedMetafields.ebat = product.title;
                 if (product.category === 'tire' && rawMetafields.width && rawMetafields.ratio && rawMetafields.rimDiameter) {
                    mappedMetafields.ebat = `${rawMetafields.width}/${rawMetafields.ratio}R${rawMetafields.rimDiameter}`;
+                } else if (product.category === 'rim' && rawMetafields.width && rawMetafields.diameter) {
+                   mappedMetafields.ebat = `${rawMetafields.width}x${rawMetafields.diameter}`;
+                } else if (product.category === 'battery' && rawMetafields.voltage && rawMetafields.capacity && rawMetafields.cca) {
+                   mappedMetafields.ebat = `${rawMetafields.voltage}V ${rawMetafields.capacity}Ah ${rawMetafields.cca}A`;
                 }
 
-                // 3. Validate and prepare for API
+                // 4. Validate and prepare for API
                 const metafieldsInput = prepareMetafieldsForShopify(mappedMetafields);
 
                 const newProduct = await shopifyService.createProduct({

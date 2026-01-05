@@ -203,12 +203,12 @@ export type MetafieldKey = keyof typeof METAFIELD_DEFINITIONS;
 
 /**
  * Maps parser output keys to Shopify Metafield keys
+ * Note: Context-dependent keys (width, diameter) are handled in sync logic
  */
 export const PARSER_TO_METAFIELD_MAP: Record<string, MetafieldKey> = {
   // Tire
-  width: "lastikGenislik",
   aspectRatio: "lastikOran",
-  rimDiameter: "jantCap", // for Tire
+  // rimDiameter -> jantCap (handled in sync)
   season: "mevsimTip",
   speedIndex: "hizIndeksi",
   loadIndex: "yukIndeksi",
@@ -217,11 +217,9 @@ export const PARSER_TO_METAFIELD_MAP: Record<string, MetafieldKey> = {
   noise: "euGurultu",
   
   // Rim
-  diameter: "jantCap", // for Rim
   pcd: "jantPCD",
   offset: "jantOffset",
-  // width -> jantGenislik (Needs logic based on category)
-
+  
   // Battery
   capacity: "akuKapasite",
   cca: "akuCCA",

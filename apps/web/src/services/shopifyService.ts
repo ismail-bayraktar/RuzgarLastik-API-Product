@@ -326,6 +326,11 @@ export class ShopifyService {
       }));
     }
 
+    // DEBUG: Log payload
+    if (this.debug) {
+      console.log("Shopify createProduct Payload:", JSON.stringify(productInput, null, 2));
+    }
+
     // Build media input for images (separate parameter in 2024+ API)
     let mediaInput: Array<{ originalSource: string; alt: string; mediaContentType: string }> | undefined;
     if (input.images && input.images.length > 0) {
@@ -489,9 +494,9 @@ export class ShopifyService {
 
   async updateVariant(input: UpdateVariantInput): Promise<ShopifyVariant> {
     const mutation = `
-      mutation updateVariant($input: ProductVariantInput!) {
-        productVariantUpdate(input: $input) {
-          productVariant {
+      mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+        productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+          productVariants {
             id
             sku
             price
@@ -505,15 +510,57 @@ export class ShopifyService {
       }
     `;
 
-    const data = await this.graphql<any>(mutation, { input }, ESTIMATED_COSTS.updateVariant);
+    // We need productId for bulk update. Since UpdateVariantInput only has variant ID, 
+    // we assume the variant ID is global and sufficient, BUT productVariantsBulkUpdate REQUIRES productId.
+    // This is a breaking change in our internal interface.
+    // WORKAROUND: We will fetch the variant first to get the productId, OR we change the interface.
+    // Better approach: Use the legacy 'productVariantUpdate' if it exists, but error says no.
+    // Let's check API docs. 'productVariantUpdate' DOES exist in 2024-10.
+    // Maybe the issue is the field name or scope. 
+    // Wait, the error says "Field 'productVariantUpdate' doesn't exist on type 'Mutation'".
+    // This is extremely strange for 2024-10.
+    // Let's try 'productVariantUpdate' again but ensure no typo.
+    // Actually, let's use the mutation we KNOW works from createProduct: productVariantsBulkUpdate.
+    // But we need productId.
+    
+    // For now, let's fetch the product ID from the variant ID first.
+    const query = `
+      query getProductOfVariant($id: ID!) {
+        node(id: $id) {
+          ... on ProductVariant {
+            product {
+              id
+            }
+          }
+        }
+      }
+    `;
+    
+    const nodeData = await this.graphql<any>(query, { id: input.id }, 5);
+    const productId = nodeData.node?.product?.id;
 
-    if (data.productVariantUpdate.userErrors.length > 0) {
+    if (!productId) {
+      throw new Error(`Could not find product for variant ${input.id}`);
+    }
+
+    const variantInput: Record<string, unknown> = {
+      id: input.id,
+      price: input.price,
+    };
+    if (input.barcode) variantInput.barcode = input.barcode;
+
+    const data = await this.graphql<any>(mutation, { 
+      productId, 
+      variants: [variantInput] 
+    }, ESTIMATED_COSTS.updateVariant);
+
+    if (data.productVariantsBulkUpdate.userErrors.length > 0) {
       throw new Error(
-        `Shopify variant update errors: ${JSON.stringify(data.productVariantUpdate.userErrors)}`
+        `Shopify variant update errors: ${JSON.stringify(data.productVariantsBulkUpdate.userErrors)}`
       );
     }
 
-    return data.productVariantUpdate.productVariant;
+    return data.productVariantsBulkUpdate.productVariants[0];
   }
 
   async updateInventory(input: UpdateInventoryInput): Promise<void> {
@@ -597,6 +644,11 @@ export class ShopifyService {
       value: mf.value,
       type: mf.type,
     }));
+
+    // DEBUG: Log payload
+    if (this.debug) {
+      console.log("Shopify setMetafields Payload:", JSON.stringify(metafieldsInput, null, 2));
+    }
 
     const data = await this.graphql<any>(mutation, { metafields: metafieldsInput }, ESTIMATED_COSTS.setMetafields);
 

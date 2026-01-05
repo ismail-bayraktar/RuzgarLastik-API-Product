@@ -7,6 +7,19 @@ interface ProductData {
 }
 
 export class DescriptionGeneratorService {
+  /**
+   * Sanitize string to prevent XSS
+   */
+  private escapeHtml(unsafe: any): string {
+    if (unsafe === undefined || unsafe === null) return "";
+    return String(unsafe)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
   generateDescription(product: ProductData): string {
     const summary = this.generateSummary(product);
     const specsTable = this.generateSpecsTable(product);
@@ -27,24 +40,26 @@ export class DescriptionGeneratorService {
 
   private generateSummary(product: ProductData): string {
     const { title, brand, category, metafields } = product;
+    const safeBrand = this.escapeHtml(brand);
+    const safeTitle = this.escapeHtml(title);
     
     if (category === "tire") {
       const season = metafields.season === "yaz" ? "Yaz" : 
                      metafields.season === "kis" || metafields.season === "kış" ? "Kış" : 
                      metafields.season === "dort_mevsim" ? "4 Mevsim" : "";
       
-      return `<strong>${brand}</strong> kalitesiyle üretilen <strong>${title}</strong>, ${season ? `${season} mevsim koşullarına uygun,` : ""} yüksek performanslı ve güvenli bir sürüş deneyimi sunar. Aracınızın yol tutuşunu ve fren mesafesini optimize etmek için tasarlanmıştır.`;
+      return `<strong>${safeBrand}</strong> kalitesiyle üretilen <strong>${safeTitle}</strong>, ${season ? `${this.escapeHtml(season)} mevsim koşullarına uygun,` : ""} yüksek performanslı ve güvenli bir sürüş deneyimi sunar. Aracınızın yol tutuşunu ve fren mesafesini optimize etmek için tasarlanmıştır.`;
     }
     
     if (category === "rim") {
-      return `<strong>${brand}</strong> tasarımı <strong>${title}</strong> çelik jant, aracınıza şık bir görünüm kazandırırken dayanıklı yapısıyla uzun ömürlü kullanım sağlar.`;
+      return `<strong>${safeBrand}</strong> tasarımı <strong>${safeTitle}</strong> çelik jant, aracınıza şık bir görünüm kazandırırken dayanıklı yapısıyla uzun ömürlü kullanım sağlar.`;
     }
     
     if (category === "battery") {
-      return `<strong>${brand}</strong> güvencesiyle <strong>${title}</strong>, yüksek marş gücü ve uzun ömürlü performansı ile aracınızın enerji ihtiyacını eksiksiz karşılar.`;
+      return `<strong>${safeBrand}</strong> güvencesiyle <strong>${safeTitle}</strong>, yüksek marş gücü ve uzun ömürlü performansı ile aracınızın enerji ihtiyacını eksiksiz karşılar.`;
     }
 
-    return `<strong>${brand}</strong> marka <strong>${title}</strong> ürünü.`;
+    return `<strong>${safeBrand}</strong> marka <strong>${safeTitle}</strong> ürünü.`;
   }
 
   private generateSpecsTable(product: ProductData): string {
@@ -110,8 +125,8 @@ export class DescriptionGeneratorService {
     if (value === undefined || value === null || value === "") return "";
     return `
       <tr style="border-bottom: 1px solid #f3f4f6;">
-        <td style="padding: 10px 16px; color: #6b7280; width: 40%; font-weight: 500;">${label}</td>
-        <td style="padding: 10px 16px; color: #111827;">${value}</td>
+        <td style="padding: 10px 16px; color: #6b7280; width: 40%; font-weight: 500;">${this.escapeHtml(label)}</td>
+        <td style="padding: 10px 16px; color: #111827;">${this.escapeHtml(value)}</td>
       </tr>
     `;
   }
